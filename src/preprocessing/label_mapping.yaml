@@ -1,0 +1,37 @@
+# src/preprocessing/label_mapping.yaml
+# Define rules for datasets found in data/raw/
+# Rules are applied to paths *relative* to the dataset's root directory.
+# Order matters if patterns/subdirs overlap; first match wins.
+
+# --- Examples - EDIT THESE TO MATCH YOUR DATA ---
+
+# Add entries for *your* actual dataset directories under data/raw/
+# For example, if you have data/raw/ExampleDataset_Author1/, add:
+# ExampleDataset_Author1:
+#   rules:
+#     # Rule 1: Check subdirectories first
+#     - type: subdir
+#       path: "drones/" # Matches files directly under a 'drones/' subdir relative to ExampleDataset_Author1
+#       label: drone
+#     - type: subdir
+#       path: "no_drone/ambient/" # Matches files under 'no_drone/ambient/'
+#       label: nodrone
+#     # Rule 2: Check filename patterns if no subdir matched
+#     - type: pattern
+#       glob: "*_drone_*.wav" # Check filename only
+#       label: drone
+#     - type: pattern
+#       glob: "*_background_*.wav"
+#       label: nodrone
+#   # Default label if no rules match for this dataset
+#   default_label: unknown
+
+DroneAudioDataset-saraalemadi:
+  rules:
+    - type: subdir
+      path: "yes_drone/"
+      label: drone
+    - type: subdir
+      path: "unknown/"
+      label: nodrone
+  default_label: unknown
