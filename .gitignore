@@ -12,4 +12,8 @@ wheels/
 # Misc
 .idea/
 .vscode/
+.cursor/
 .DS_Store
+
+# Temp
+Classification_Training_Drone_Audio_Detection-main/
