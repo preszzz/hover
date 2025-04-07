@@ -1,6 +1,6 @@
 import logging
 import time
-from pathlib import Path # Import Path
+from pathlib import Path
 
 # Assuming config.py and step scripts are in the same directory or accessible via PYTHONPATH
 import config
@@ -77,13 +77,11 @@ def run_pipeline():
     logging.info("--- Running Step 5: Create Label Files & Move to Processed ---")
     step_5_start = time.time()
     try:
-        # Determine the path to the label mapping file relative to the step 5 script
-        # Assumes main_preprocess.py is in the same dir as step_5_create_label_files.py
         script_dir = Path(__file__).parent
         mapping_file = script_dir / 'label_mapping.yaml'
         step_5_create_label.create_label_files(config.INTERIM_SPLIT_DIR,
-                                                   config.WAV_CONVERSION_DIR,
-                                                   str(mapping_file))
+                                               config.WAV_CONVERSION_DIR,
+                                               str(mapping_file))
     except Exception as e:
         logging.error(f"Error during Step 5 (Create Label Files): {e}", exc_info=True)
         logging.critical("Pipeline halted due to error in Step 5.")
@@ -97,6 +95,7 @@ def run_pipeline():
     logging.info(f"Processed data (features and labels) located in: {config.PROCESSED_DATA_DIR}")
     logging.info(f"Intermediate files located in: {config.INTERIM_DATA_DIR}")
     logging.info(f"Labeling rules defined in: src/preprocessing/label_mapping.yaml")
+
 
 if __name__ == "__main__":
     run_pipeline() 
