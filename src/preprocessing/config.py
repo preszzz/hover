@@ -18,7 +18,7 @@ RESAMPLED_DIR = os.path.join(INTERIM_DATA_DIR, 'resampled')
 INTERIM_SPLIT_DIR = os.path.join(INTERIM_DATA_DIR, 'split_with_meta') # Step 3 writes chunks+meta here
 
 # --- Audio Processing Parameters ---
-TARGET_SAMPLE_RATE = 16000  # Hz
+TARGET_SAMPLE_RATE = 16000  # Hz (16kHz)
 CHUNK_LENGTH_MS = 1000      # milliseconds (1 second)
 
 # --- MFCC Parameters (Based on reference project) ---
@@ -29,8 +29,8 @@ FMAX = 8000          # Maximum frequency for MEL filters (Hz)
 NORMALIZATION_DB = -20.0 # dB level for normalization reference
 
 # --- Output File Names ---
-SIGNAL_FILENAME = 'signal.csv'
-MFCC_FILENAME = 'mfcc.npy' # Using .npy for efficient numpy array storage
+SIGNAL_FILENAME = 'signal.csv'   # Raw signal data as CSV
+MFCC_FILENAME = 'mfcc.npy'       # MFCC features as numpy array
 
 # --- Misc ---
-NUM_WORKERS = os.cpu_count() # For potential parallel processing (optional) 
+NUM_WORKERS = os.cpu_count()  # For potential parallel processing (optional) 
