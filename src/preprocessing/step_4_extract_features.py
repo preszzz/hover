@@ -20,6 +20,7 @@ def calculate_expected_frames(sr: int, duration_ms: int, hop_length: int) -> int
     return expected_frames
 
 
+# Calculate expected dimensions
 EXPECTED_FRAMES = calculate_expected_frames(config.TARGET_SAMPLE_RATE,
                                             config.CHUNK_LENGTH_MS,
                                             config.HOP_LENGTH)
@@ -83,6 +84,7 @@ def process_segment_chunk(segment_dir: Path) -> bool:
             shutil.rmtree(segment_dir)
             return False
 
+        # Normalize to have peak at -20dB (as per config.NORMALIZATION_DB)
         normalized_signal = signal_float32 / max_abs_val
         normalized_signal *= (10 ** (config.NORMALIZATION_DB / 20))
 
