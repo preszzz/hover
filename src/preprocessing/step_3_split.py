@@ -66,37 +66,70 @@ def split_wav_file(input_path: Path, output_base_dir: Path, chunk_length_ms: int
              return 0, 1
 
         num_full_chunks = total_frames // chunk_length_samples
-
-        if num_full_chunks == 0:
-            file_duration_ms = (total_frames / target_sr) * 1000
-            logging.warning(f"Skipping file: {input_path} - Too short for processing (file length: {file_duration_ms:.1f}ms, required: {chunk_length_ms}ms)")
-            return 0, 0  # Not an error, just no chunks created
-
-        # Read the whole file data
+        
+        # Read the audio data
         audio_data, _ = sf.read(input_path, dtype='float32')
 
+        # Determine if we need to process a short file with padding or regular chunks
+        if num_full_chunks == 0:
+            # Short file case - create one padded chunk
+            file_duration_ms = (total_frames / target_sr) * 1000
+            logging.info(f"File {input_path} shorter than chunk size ({file_duration_ms:.1f}ms < {chunk_length_ms}ms). Padding to chunk length.")
+            
+            # Create padded version (zero padding at the end)
+            padded_data = np.zeros(chunk_length_samples, dtype=np.float32)
+            padded_data[:len(audio_data)] = audio_data
+            
+            # Set up the chunk output path
+            chunk_name_base = f"{input_path.stem}"
+            chunk_name_wav = f"{chunk_name_base}.wav"
+            
+            # Define the specific directory structure
+            chunk_dir = output_base_dir / relative_path_no_ext / chunk_name_base
+            chunk_output_path = chunk_dir / chunk_name_wav
+            metadata_output_path = chunk_dir / SOURCE_INFO_FILENAME
+            
+            try:
+                chunk_dir.mkdir(parents=True, exist_ok=True)
+                # Write padded chunk with the target sample rate
+                sf.write(chunk_output_path, padded_data, target_sr, subtype='PCM_16')
+                
+                # Write metadata file
+                metadata = {
+                    'dataset_name': dataset_name,
+                    'relative_source_path_in_dataset': relative_source_path_in_dataset.as_posix()
+                }
+                with open(metadata_output_path, 'w') as f:
+                    yaml.safe_dump(metadata, f)
+                    
+                return 1, 0  # One chunk created, no errors
+            except Exception as e:
+                logging.error(f"Error writing padded chunk from {input_path} to {chunk_output_path}: {e}")
+                return 0, 1
+                
+        # Process full chunks
         for i in range(num_full_chunks):
             start_sample = i * chunk_length_samples
             end_sample = (i + 1) * chunk_length_samples
             chunk_data = audio_data[start_sample:end_sample]
-
+            
             chunk_index = i + 1  # 1-based index for chunk names
             chunk_name_base = f"{input_path.stem}_chunk_{chunk_index}"
             chunk_name_wav = f"{chunk_name_base}.wav"
-
-            # Define the specific directory for this chunk (NESTED STRUCTURE)
+            
+            # Define paths for this chunk
             chunk_dir = output_base_dir / relative_path_no_ext / chunk_name_base
             # Define the full path for the chunk's WAV file
             chunk_output_path = chunk_dir / chunk_name_wav
             # Define the full path for the metadata file
             metadata_output_path = chunk_dir / SOURCE_INFO_FILENAME
-
+            
             try:
                 chunk_dir.mkdir(parents=True, exist_ok=True)
                 # Write chunk with the same samplerate and subtype
                 sf.write(chunk_output_path, chunk_data, target_sr, subtype='PCM_16')
                 logging.debug(f"Exported chunk {chunk_index}/{num_full_chunks} to {chunk_output_path}")
-
+                
                 # Write metadata file
                 metadata = {
                     'dataset_name': dataset_name,
@@ -106,7 +139,7 @@ def split_wav_file(input_path: Path, output_base_dir: Path, chunk_length_ms: int
                 with open(metadata_output_path, 'w') as f:
                     yaml.safe_dump(metadata, f)
                 logging.debug(f"Wrote metadata to {metadata_output_path}")
-
+                
                 chunks_created += 1
             except Exception as e:
                 logging.error(f"Error writing chunk {chunk_index} from {input_path} to {chunk_output_path}: {e}")

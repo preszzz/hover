@@ -69,7 +69,7 @@ def process_segment_chunk(segment_dir: Path) -> bool:
         # Convert to int16 for saving and silence check
         signal_int16 = (signal_float32 * np.iinfo(np.int16).max).astype(np.int16)
         if np.all(signal_int16 == 0):
-            logging.warning(f"Signal is all zeros in {wav_path}. Deleting directory.")
+            # logging.warning(f"Signal is all zeros in {wav_path}. Deleting directory.")
             shutil.rmtree(segment_dir)
             return False
 
