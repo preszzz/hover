@@ -56,8 +56,8 @@ def split_wav_file(input_path: Path, output_base_dir: Path, chunk_length_ms: int
         channels = info.channels
 
         if samplerate != target_sr:
-            logging.warning(f"File sample rate ({samplerate}) does not match target ({target_sr}). Skipping: {input_path}")
-            return 0, 0  # Not an error, but prevents incorrect splitting
+            logging.warning(f"Unexpected error: File in RESAMPLED_DIR has incorrect sample rate ({samplerate} vs {target_sr}). Step 2 may have failed. Skipping: {input_path}")
+            return 0, 0
 
         chunk_length_samples = int(target_sr * chunk_length_ms / 1000)
 
@@ -68,7 +68,8 @@ def split_wav_file(input_path: Path, output_base_dir: Path, chunk_length_ms: int
         num_full_chunks = total_frames // chunk_length_samples
 
         if num_full_chunks == 0:
-            logging.warning(f"File is shorter than chunk length ({chunk_length_ms}ms / {chunk_length_samples} samples), skipping: {input_path}")
+            file_duration_ms = (total_frames / target_sr) * 1000
+            logging.warning(f"Skipping file: {input_path} - Too short for processing (file length: {file_duration_ms:.1f}ms, required: {chunk_length_ms}ms)")
             return 0, 0  # Not an error, just no chunks created
 
         # Read the whole file data
