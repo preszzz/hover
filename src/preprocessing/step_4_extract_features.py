@@ -4,13 +4,10 @@ import numpy as np
 import soundfile as sf
 import librosa
 from pathlib import Path
-import yaml # Import yaml for loading metadata if needed (though maybe not)
-import os # Import os for deleting files
+import os
 
 # Assuming config.py is in the same directory or accessible via PYTHONPATH
 import config
-# Assuming step_3_split.py is in the same directory for SOURCE_INFO_FILENAME
-from step_3_split import SOURCE_INFO_FILENAME # Import the constant
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -22,10 +19,12 @@ def calculate_expected_frames(sr: int, duration_ms: int, hop_length: int) -> int
     expected_frames = int(np.ceil(float(samples) / hop_length))
     return expected_frames
 
+
 EXPECTED_FRAMES = calculate_expected_frames(config.TARGET_SAMPLE_RATE,
                                             config.CHUNK_LENGTH_MS,
                                             config.HOP_LENGTH)
 EXPECTED_SAMPLES = int(config.TARGET_SAMPLE_RATE * config.CHUNK_LENGTH_MS / 1000)
+
 
 def process_segment_chunk(segment_dir: Path) -> bool:
     """Processes a single audio segment chunk directory.
@@ -35,7 +34,6 @@ def process_segment_chunk(segment_dir: Path) -> bool:
 
     Args:
         segment_dir: Path to the directory containing the chunk .wav file.
-                     (e.g., .../segments/dataset/audiofile/audiofile_chunk_1)
 
     Returns:
         True if processing was successful, False otherwise (and dir deleted).
@@ -43,8 +41,6 @@ def process_segment_chunk(segment_dir: Path) -> bool:
     wav_files = list(segment_dir.glob('*.wav'))
     if not wav_files:
         logging.warning(f"No WAV file found in {segment_dir}, skipping.")
-        # Optionally delete the directory if it should always contain a wav
-        # shutil.rmtree(segment_dir)
         return False
     if len(wav_files) > 1:
         logging.warning(f"Multiple WAV files found in {segment_dir}, using first: {wav_files[0]}")
@@ -55,13 +51,12 @@ def process_segment_chunk(segment_dir: Path) -> bool:
 
     try:
         # 1. Read WAV file
-        # Use soundfile which gives numpy array directly
         signal_float32, sr = sf.read(wav_path, dtype='float32')
 
         # Ensure it's mono
         if signal_float32.ndim > 1:
             logging.warning(f"Audio is not mono ({signal_float32.ndim} channels) in {wav_path}, converting to mono.")
-            signal_float32 = librosa.to_mono(signal_float32.T) # librosa expects shape (channels, samples)
+            signal_float32 = librosa.to_mono(signal_float32.T)  # librosa expects shape (channels, samples)
 
         # 2. Validation (Length)
         if len(signal_float32) != EXPECTED_SAMPLES:
@@ -70,8 +65,7 @@ def process_segment_chunk(segment_dir: Path) -> bool:
             return False
 
         # 3. Validation (Silence)
-        # Convert to int16 for saving and silence check (as in reference)
-        # Scale float32 [-1, 1] to int16 range
+        # Convert to int16 for saving and silence check
         signal_int16 = (signal_float32 * np.iinfo(np.int16).max).astype(np.int16)
         if np.all(signal_int16 == 0):
             logging.warning(f"Signal is all zeros in {wav_path}. Deleting directory.")
@@ -84,7 +78,7 @@ def process_segment_chunk(segment_dir: Path) -> bool:
 
         # 5. Normalization (using float32 signal)
         max_abs_val = np.max(np.abs(signal_float32))
-        if max_abs_val == 0: # Should have been caught by int16 check, but safety first
+        if max_abs_val == 0:
             logging.error(f"Max absolute value is zero after passing silence check? Error in {wav_path}. Deleting directory.")
             shutil.rmtree(segment_dir)
             return False
@@ -100,12 +94,12 @@ def process_segment_chunk(segment_dir: Path) -> bool:
 
         # 7. Extract MFCCs
         mfcc = librosa.feature.mfcc(y=normalized_signal,
-                                      sr=sr, # Should be TARGET_SAMPLE_RATE
-                                      n_mfcc=config.N_MFCC,
-                                      n_fft=config.N_FFT,
-                                      hop_length=config.HOP_LENGTH,
-                                      fmax=config.FMAX,
-                                      center=True) # Default, consistent with frame calc
+                                    sr=sr,
+                                    n_mfcc=config.N_MFCC,
+                                    n_fft=config.N_FFT,
+                                    hop_length=config.HOP_LENGTH,
+                                    fmax=config.FMAX,
+                                    center=True)
 
         # 8. Validation (MFCC Shape)
         if mfcc.shape != (config.N_MFCC, EXPECTED_FRAMES):
@@ -137,17 +131,17 @@ def process_segment_chunk(segment_dir: Path) -> bool:
                  logging.error(f"Failed to remove directory {segment_dir} after error: {rm_e}")
         return False
 
+
 def process_split_directory(split_base_dir: str):
     """Processes all segment chunk directories found within the base split directory.
 
     Args:
-        split_base_dir: The base directory containing the chunk subdirectories
-                        (output of step 3, e.g., config.SPLIT_SEGMENTS_DIR).
+        split_base_dir: The base directory containing the chunk subdirectories.
     """
     logging.info(f"Starting feature extraction for segments in '{split_base_dir}'")
     base_path = Path(split_base_dir)
 
-    segment_dirs = [d for d in base_path.rglob('*_chunk_*') if d.is_dir()] # Find dirs like '.../filename_chunk_1'
+    segment_dirs = [d for d in base_path.rglob('*_chunk_*') if d.is_dir()]
 
     if not segment_dirs:
         logging.warning(f"No segment chunk directories found in {split_base_dir}. Ensure step 3 ran correctly.")
@@ -158,14 +152,6 @@ def process_split_directory(split_base_dir: str):
     processed_count = 0
     deleted_count = 0
 
-    # Consider using multiprocessing here for large datasets
-    # from concurrent.futures import ProcessPoolExecutor
-    # with ProcessPoolExecutor(max_workers=config.NUM_WORKERS) as executor:
-    #     results = list(executor.map(process_segment_chunk, segment_dirs))
-    # processed_count = sum(1 for r in results if r)
-    # deleted_count = len(results) - processed_count
-
-    # Simple sequential processing for now
     for i, segment_dir in enumerate(segment_dirs):
         if (i + 1) % 100 == 0:
              logging.info(f"Processing segment {i+1}/{len(segment_dirs)}: {segment_dir.name}")
@@ -176,7 +162,7 @@ def process_split_directory(split_base_dir: str):
 
     logging.info(f"Feature extraction complete. Segments processed successfully: {processed_count}, Segments deleted due to errors/validation: {deleted_count}")
 
+
 if __name__ == "__main__":
     # Example usage: Reads directory from config
-    # Assumes step_3 has already run and populated INTERIM_SPLIT_DIR
     process_split_directory(config.INTERIM_SPLIT_DIR) 

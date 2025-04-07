@@ -3,7 +3,7 @@ import yaml
 import fnmatch
 from pathlib import Path
 import os
-import shutil # Added for moving files and removing directories
+import shutil
 
 # Assuming config.py is accessible
 import config
@@ -25,7 +25,7 @@ def load_label_mapping(mapping_path: Path) -> dict | None:
         with open(mapping_path, 'r') as f:
             mapping = yaml.safe_load(f)
         logging.info(f"Successfully loaded label mapping from {mapping_path}")
-        # Basic validation (check if it's a dictionary)
+        # Basic validation
         if not isinstance(mapping, dict):
             logging.error(f"Label mapping file {mapping_path} did not parse as a dictionary.")
             return None
@@ -86,16 +86,15 @@ def get_label_for_source_path(dataset_name: str, relative_path_in_dataset: Path,
     logging.debug(f"No specific rule matched for '{relative_path_str}' in {dataset_name}. Using default: {default_label}")
     return default_label
 
+
 def create_label_files(processed_segments_dir: str, wav_conversion_dir: str, label_mapping_path: str):
     """Scans intermediate segments, determines labels, moves features+creates label in final processed dir."""
-    # Rename variable for clarity - this is the *intermediate* source
+    # Rename variable for clarity - this is the intermediate source
     intermediate_segments_path = Path(processed_segments_dir)
     final_processed_path = Path(config.PROCESSED_DATA_DIR)
     # Ensure the final base processed directory exists
     final_processed_path.mkdir(parents=True, exist_ok=True)
 
-    # wav_conversion_dir is no longer needed for path reconstruction
-    # wav_base_path = Path(wav_conversion_dir)
     mapping_file_path = Path(label_mapping_path)
 
     mapping_rules = load_label_mapping(mapping_file_path)
@@ -109,8 +108,6 @@ def create_label_files(processed_segments_dir: str, wav_conversion_dir: str, lab
     segments_skipped_no_features = 0
     label_errors = 0
 
-    # Example: segments_path / DatasetA / subdir / filename_stem / chunk_dir
-    # Now searching the *intermediate* directory
     segment_dirs = []
     # Iterate through ALL directories in intermediate_segments_path that look like chunk dirs
     for item in intermediate_segments_path.rglob('*_chunk_*'):
@@ -119,20 +116,17 @@ def create_label_files(processed_segments_dir: str, wav_conversion_dir: str, lab
 
     logging.info(f"Found {len(segment_dirs)} potential segment directories under {intermediate_segments_path}...")
 
-    # segment_dirs_found = 0 # Replaced by len(segment_dirs)
-    for segment_dir in segment_dirs: # segment_dir is now the INTERMEDIATE chunk dir
+    for segment_dir in segment_dirs:
         segments_processed += 1
 
         # Check if feature extraction was successful for this segment
         feature_file = segment_dir / config.MFCC_FILENAME
         if not feature_file.is_file():
-            # Don't log warning here, Step 4 already handles failed segments.
-            # We only want to label segments that were successfully processed.
             segments_skipped_no_features += 1
             continue
 
         try:
-            # --- Read Source Info Metadata --- #
+            # Read Source Info Metadata
             metadata_path = segment_dir / SOURCE_INFO_FILENAME
             if not metadata_path.is_file():
                 logging.error(f"Metadata file {SOURCE_INFO_FILENAME} not found in {segment_dir}. Cannot determine label.")
@@ -148,21 +142,19 @@ def create_label_files(processed_segments_dir: str, wav_conversion_dir: str, lab
                 continue
 
             dataset_name = metadata['dataset_name']
-            # Convert back to Path object for get_label_for_source_path if needed by its logic,
-            # although it primarily uses the string representation.
+            # Convert back to Path object for get_label_for_source_path
             relative_source_path_in_dataset = Path(metadata['relative_source_path_in_dataset'])
 
-            # --- Determine Label --- #
-            # Pass the extracted info directly
+            # Determine Label
             label = get_label_for_source_path(dataset_name, relative_source_path_in_dataset, mapping_rules)
-            # Sanitize label for use in directory name (replace spaces, etc.)
-            label_dirname = label.replace(' ', '_').replace('/', '-') # Example sanitization
+            # Sanitize label for use in directory name
+            label_dirname = label.replace(' ', '_').replace('/', '-')
 
-            # --- Construct Final Path --- #
-            chunk_name = segment_dir.name # e.g., "c_chunk_1"
+            # Construct Final Path
+            chunk_name = segment_dir.name  # e.g., "c_chunk_1"
             final_chunk_dir = final_processed_path / dataset_name / label_dirname / chunk_name
 
-            # --- Create final dir, Move Features, Write Label --- #
+            # Create final dir, Move Features, Write Label
             try:
                 final_chunk_dir.mkdir(parents=True, exist_ok=True)
 
@@ -176,13 +168,12 @@ def create_label_files(processed_segments_dir: str, wav_conversion_dir: str, lab
                         logging.debug(f"Moved {source_feature_path.name} to {dest_feature_path}")
                         moved_files += 1
                     else:
-                        # This might indicate an issue in Step 4, but proceed if possible
                         logging.warning(f"Feature file {feature_filename} not found in intermediate dir {segment_dir}")
 
                 if moved_files == 0:
                      logging.error(f"No feature files found to move from {segment_dir}. Skipping label/cleanup.")
                      label_errors += 1
-                     continue # Don't write label or cleanup if no features were moved
+                     continue  # Don't write label or cleanup if no features were moved
 
                 # Write Label File to FINAL location
                 label_file_path = final_chunk_dir / LABEL_FILENAME
@@ -191,9 +182,9 @@ def create_label_files(processed_segments_dir: str, wav_conversion_dir: str, lab
                 label_files_created += 1
                 logging.debug(f"Wrote label '{label}' to {label_file_path}")
 
-                # --- Clean up metadata file and intermediate dir AFTER successful move/label ---
+                # Clean up metadata file and intermediate dir AFTER successful move/label
                 try:
-                    os.remove(metadata_path) # metadata_path defined earlier
+                    os.remove(metadata_path)
                     logging.debug(f"Removed intermediate metadata file: {metadata_path}")
                 except OSError as e:
                     logging.warning(f"Could not remove intermediate metadata file {metadata_path}: {e}")
@@ -205,7 +196,6 @@ def create_label_files(processed_segments_dir: str, wav_conversion_dir: str, lab
                          os.rmdir(segment_dir)
                          logging.debug(f"Removed empty intermediate segment directory: {segment_dir}")
                     else:
-                        # This shouldn't happen if features moved and metadata removed
                         logging.warning(f"Intermediate segment directory not empty, not removing: {segment_dir}")
                 except OSError as e:
                     logging.warning(f"Could not remove intermediate segment directory {segment_dir}: {e}")
@@ -213,14 +203,13 @@ def create_label_files(processed_segments_dir: str, wav_conversion_dir: str, lab
             except Exception as e:
                 logging.error(f"Error during final move/label/cleanup for {segment_dir} -> {final_chunk_dir}: {e}", exc_info=True)
                 label_errors += 1
-                # Potential partial move, difficult to clean up automatically
 
         except Exception as e:
             logging.error(f"Error processing intermediate segment directory {segment_dir}: {e}", exc_info=True)
             label_errors += 1
 
     logging.info(f"Label file creation & final move finished. Total Intermediate Segment Dirs Found: {len(segment_dirs)}")
-    logging.info(f"Label Files Created & Features Moved: {label_files_created}") # Adjusted log message
+    logging.info(f"Label Files Created & Features Moved: {label_files_created}")
     logging.info(f"Segments Processed: {segments_processed}, Skipped (No Features in Intermediate): {segments_skipped_no_features}")
     logging.info(f"Errors During Labeling/Move/Cleanup: {label_errors}")
 
@@ -232,13 +221,11 @@ if __name__ == "__main__":
 
     # Ensure required INTERIM config path exists
     interim_dir_path = Path(config.INTERIM_SPLIT_DIR)
-    # wav_dir_path = Path(config.WAV_CONVERSION_DIR) # No longer needed here
 
     if not interim_dir_path.is_dir():
         logging.error(f"Intermediate split directory not found: {interim_dir_path}")
         logging.error("Ensure Steps 1-3 of the pipeline have run successfully.")
     else:
-        # Pass the INTERIM dir as the source, wav_conversion_dir is unused
         create_label_files(config.INTERIM_SPLIT_DIR,
                            config.WAV_CONVERSION_DIR,
                            str(mapping_file))

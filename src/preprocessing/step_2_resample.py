@@ -2,7 +2,7 @@ import logging
 import soundfile as sf
 import librosa
 from pathlib import Path
-import shutil # Import shutil for file copying
+import shutil
 
 # Assuming config.py is in the same directory or accessible via PYTHONPATH
 import config
@@ -44,20 +44,20 @@ def resample_audio(input_path: Path, output_path: Path, target_sr: int) -> bool:
                 sr = sr_loaded
 
             y_resampled = librosa.resample(y, orig_sr=sr, target_sr=target_sr)
-            # Ensure writing with a consistent subtype, e.g., PCM_16
             sf.write(output_path, y_resampled, target_sr, subtype='PCM_16')
             logging.debug(f"Resampled {input_path} (from {sr}Hz) to {output_path} ({target_sr}Hz)")
             return True
 
     except Exception as e:
         logging.error(f"Error processing file {input_path} for resampling/copying: {e}")
-        # Attempt to remove potentially incomplete output file
+        # Remove potentially incomplete output file
         if output_path.exists():
             try:
                 output_path.unlink()
             except OSError as rm_e:
                 logging.error(f"Failed to remove incomplete output file {output_path}: {rm_e}")
         return False
+
 
 def process_directory(source_dir: str, target_dir: str, target_sample_rate: int):
     """Processes a directory recursively, resampling WAV files.
@@ -76,7 +76,7 @@ def process_directory(source_dir: str, target_dir: str, target_sample_rate: int)
     error_count = 0
     skipped_count = 0
 
-    for item in source_path.rglob('*.wav'): # Find all .wav files recursively
+    for item in source_path.rglob('*.wav'):
         if item.is_file():
             relative_path = item.relative_to(source_path)
             output_file_path = target_path / relative_path
@@ -87,23 +87,15 @@ def process_directory(source_dir: str, target_dir: str, target_sample_rate: int)
             if resample_audio(item, output_file_path, target_sample_rate):
                 processed_count += 1
             else:
-                # Optional: remove partially created file on error
-                if output_file_path.exists():
-                    try:
-                        output_file_path.unlink()
-                    except OSError as e:
-                        logging.error(f"Failed to remove incomplete output file {output_file_path}: {e}")
                 error_count += 1
         else:
-             # This shouldn't happen with rglob('*.wav') but good practice
-             logging.debug(f"Skipping non-file item: {item}")
-             skipped_count += 1
+            skipped_count += 1
 
     logging.info(f"Resampling complete. Processed: {processed_count}, Errors: {error_count}, Skipped: {skipped_count}")
 
+
 if __name__ == "__main__":
     # Example usage: Reads directories and sample rate from config
-    # Assumes step_1 has already run and populated WAV_CONVERSION_DIR
     process_directory(config.WAV_CONVERSION_DIR,
                       config.RESAMPLED_DIR,
                       config.TARGET_SAMPLE_RATE) 
