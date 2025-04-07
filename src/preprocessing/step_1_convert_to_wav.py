@@ -9,6 +9,22 @@ import config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Get available audio formats from soundfile
+SUPPORTED_FORMATS = sf.available_formats()
+
+def is_supported_audio_file(file_path: Path) -> bool:
+    """Check if the file has a supported audio format extension.
+    
+    Args:
+        file_path: Path to the file to check.
+        
+    Returns:
+        True if the file extension indicates a supported audio format, False otherwise.
+    """
+    # Get the extension without the dot and convert to uppercase
+    ext = file_path.suffix[1:].upper() if file_path.suffix else ""
+    return ext in SUPPORTED_FORMATS
+
 
 def convert_to_wav(input_path: Path, output_path: Path) -> bool:
     """Converts a single audio file to WAV format.
@@ -70,6 +86,12 @@ def process_directory(source_dir: str, target_dir: str):
             relative_path = item.relative_to(source_path)
             output_file_path = target_path / relative_path.with_suffix('.wav')
 
+            # Skip files that aren't supported audio formats
+            if not is_supported_audio_file(item):
+                logging.info(f"Skipping non-audio file: {item}")
+                skipped_non_audio_count += 1
+                continue
+
             # Ensure the output directory for the file exists
             output_file_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -77,9 +99,10 @@ def process_directory(source_dir: str, target_dir: str):
                 processed_count += 1
             else:
                 error_count += 1
-                skipped_non_audio_count += 1
 
-    logging.info(f"WAV conversion complete. Files attempted: {processed_count + error_count}. Successful: {processed_count}, Errors/Skipped: {error_count}")
+    logging.info(f"WAV conversion complete. Audio files processed: {processed_count + error_count}, "
+                 f"Successfully converted: {processed_count}, Conversion errors: {error_count}, "
+                 f"Skipped non-audio files: {skipped_non_audio_count}")
 
 if __name__ == "__main__":
     # Example usage: Reads directories from config
