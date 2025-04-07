@@ -20,6 +20,7 @@ INTERIM_SPLIT_DIR = os.path.join(INTERIM_DATA_DIR, 'split_with_meta') # Step 3 w
 # --- Audio Processing Parameters ---
 TARGET_SAMPLE_RATE = 16000  # Hz (16kHz)
 CHUNK_LENGTH_MS = 1000      # milliseconds (1 second)
+CHUNK_LENGTH_SAMPLES = int(TARGET_SAMPLE_RATE * CHUNK_LENGTH_MS / 1000)  # Number of samples in one chunk
 
 # --- MFCC Parameters (Based on reference project) ---
 N_MFCC = 40          # Number of MFCC coefficients

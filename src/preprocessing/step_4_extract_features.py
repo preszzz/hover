@@ -24,7 +24,8 @@ def calculate_expected_frames(sr: int, duration_ms: int, hop_length: int) -> int
 EXPECTED_FRAMES = calculate_expected_frames(config.TARGET_SAMPLE_RATE,
                                             config.CHUNK_LENGTH_MS,
                                             config.HOP_LENGTH)
-EXPECTED_SAMPLES = int(config.TARGET_SAMPLE_RATE * config.CHUNK_LENGTH_MS / 1000)
+# Use the precalculated value from config.py
+EXPECTED_SAMPLES = config.CHUNK_LENGTH_SAMPLES
 
 
 def process_segment_chunk(segment_dir: Path) -> bool:
@@ -143,8 +144,9 @@ def process_split_directory(split_base_dir: str):
     logging.info(f"Starting feature extraction for segments in '{split_base_dir}'")
     base_path = Path(split_base_dir)
 
-    segment_dirs = [d for d in base_path.rglob('*_chunk_*') if d.is_dir()]
-
+    # Find all directories - previous pipeline steps ensure these are valid chunk directories
+    segment_dirs = [d for d in base_path.rglob('*') if d.is_dir()]
+    
     if not segment_dirs:
         logging.warning(f"No segment chunk directories found in {split_base_dir}. Ensure step 3 ran correctly.")
         return
