@@ -59,7 +59,8 @@ def split_wav_file(input_path: Path, output_base_dir: Path, chunk_length_ms: int
             logging.warning(f"Unexpected error: File in RESAMPLED_DIR has incorrect sample rate ({samplerate} vs {target_sr}). Step 2 may have failed. Skipping: {input_path}")
             return 0, 0
 
-        chunk_length_samples = int(target_sr * chunk_length_ms / 1000)
+        # Use the chunk length from config
+        chunk_length_samples = config.CHUNK_LENGTH_SAMPLES
 
         if chunk_length_samples <= 0:
              logging.error(f"Calculated chunk length in samples is zero or negative ({chunk_length_samples}). Check config. Skipping: {input_path}")
@@ -73,8 +74,8 @@ def split_wav_file(input_path: Path, output_base_dir: Path, chunk_length_ms: int
         # Determine if we need to process a short file with padding or regular chunks
         if num_full_chunks == 0:
             # Short file case - create one padded chunk
-            file_duration_ms = (total_frames / target_sr) * 1000
-            logging.info(f"File {input_path} shorter than chunk size ({file_duration_ms:.1f}ms < {chunk_length_ms}ms). Padding to chunk length.")
+            # file_duration_ms = (total_frames / target_sr) * 1000
+            # logging.info(f"File {input_path} shorter than chunk size ({file_duration_ms:.1f}ms < {chunk_length_ms}ms). Padding to chunk length.")
             
             # Create padded version (zero padding at the end)
             padded_data = np.zeros(chunk_length_samples, dtype=np.float32)
