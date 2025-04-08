@@ -12,8 +12,8 @@ INTERIM_DATA_DIR = os.path.join(DATA_DIR, 'interim')
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed')
 
 # Specific subdirectories for pipeline steps
-RESAMPLED_DIR = os.path.join(INTERIM_DATA_DIR, 'resampled')  # Combined conversion & resampling output
-INTERIM_SPLIT_DIR = os.path.join(INTERIM_DATA_DIR, 'split_with_meta') # Step 3 writes chunks+meta here
+RESAMPLED_DIR = os.path.join(INTERIM_DATA_DIR, 'resampled')
+INTERIM_SPLIT_DIR = os.path.join(INTERIM_DATA_DIR, 'split_with_meta')
 
 # --- Audio Processing Parameters ---
 TARGET_SAMPLE_RATE = 16000  # Hz (16kHz)
