@@ -3,23 +3,16 @@ import numpy as np
 import soundfile as sf
 import librosa
 from pathlib import Path
+import shutil
 
 # Assuming config.py is in the same directory or accessible via PYTHONPATH
 import config
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-def calculate_expected_frames(sr: int, duration_ms: int, hop_length: int) -> int:
-    """Calculate the expected number of frames for librosa MFCC with center=True."""
-    samples = int(sr * duration_ms / 1000)
-    expected_frames = int(np.ceil(float(samples) / hop_length))
-    return expected_frames
-
 # Calculate expected dimensions once
-EXPECTED_FRAMES = calculate_expected_frames(config.TARGET_SAMPLE_RATE,
-                                         config.CHUNK_LENGTH_MS,
-                                         config.HOP_LENGTH)
 EXPECTED_SAMPLES = config.CHUNK_LENGTH_SAMPLES
+EXPECTED_FRAMES = int(np.ceil(float(EXPECTED_SAMPLES) / config.HOP_LENGTH))
 
 def process_chunk(chunk_data: np.ndarray, chunk_dir: Path, sr: int) -> bool:
     """Process a single audio chunk: validate, normalize, extract and save features.
@@ -45,7 +38,7 @@ def process_chunk(chunk_data: np.ndarray, chunk_dir: Path, sr: int) -> bool:
 
         # 3. Save Raw Signal (int16)
         signal_path = chunk_dir / config.SIGNAL_FILENAME
-        np.savetxt(signal_path, signal_int16, delimiter=',', fmt='%d')
+        np.savetxt(signal_path, chunk_data, delimiter=',', fmt='%.6f')
 
         # 4. Normalization
         max_abs_val = np.max(np.abs(chunk_data))
@@ -125,13 +118,13 @@ def process_audio_file(input_path: Path, output_base_dir: Path, target_sr: int) 
             audio_data = librosa.to_mono(audio_data.T)
 
         # Handle short file
-        if len(audio_data) <= EXPECTED_SAMPLES:
+        if info.frames <= EXPECTED_SAMPLES:
             chunk_name_base = input_path.stem
             chunk_dir = output_base_dir / relative_path_no_ext / chunk_name_base
             chunk_dir.mkdir(parents=True, exist_ok=True)
 
             # Pad if necessary
-            if len(audio_data) < EXPECTED_SAMPLES:
+            if EXPECTED_SAMPLES / 2 < info.frames < EXPECTED_SAMPLES:
                 padded_data = np.zeros(EXPECTED_SAMPLES, dtype=np.float32)
                 padded_data[:len(audio_data)] = audio_data
                 audio_data = padded_data
@@ -140,11 +133,13 @@ def process_audio_file(input_path: Path, output_base_dir: Path, target_sr: int) 
             if process_chunk(audio_data, chunk_dir, target_sr):
                 chunks_processed += 1
             else:
+                if chunk_dir.exists():
+                    shutil.rmtree(chunk_dir)
                 errors += 1
             return chunks_processed, errors
 
         # Process full-length file in chunks
-        num_full_chunks = len(audio_data) // EXPECTED_SAMPLES
+        num_full_chunks = info.frames // EXPECTED_SAMPLES
         for i in range(num_full_chunks):
             start_sample = i * EXPECTED_SAMPLES
             end_sample = (i + 1) * EXPECTED_SAMPLES
@@ -158,6 +153,8 @@ def process_audio_file(input_path: Path, output_base_dir: Path, target_sr: int) 
             if process_chunk(chunk_data, chunk_dir, target_sr):
                 chunks_processed += 1
             else:
+                if chunk_dir.exists():
+                    shutil.rmtree(chunk_dir)
                 errors += 1
 
     except Exception as e:
@@ -166,13 +163,13 @@ def process_audio_file(input_path: Path, output_base_dir: Path, target_sr: int) 
 
     return chunks_processed, errors
 
-def process_directory(source_dir: str, target_dir: str, target_sample_rate: int):
+def process_directory(source_dir: str, target_dir: str, target_sr: int):
     """Process all audio files in the source directory.
     
     Args:
         source_dir: Directory containing resampled audio files
         target_dir: Directory to save processed chunks with features
-        target_sample_rate: Expected sample rate of input files
+        target_sr: Expected sample rate of input files
     """
     logging.info(f"Starting split and feature extraction from '{source_dir}' to '{target_dir}'")
     source_path = Path(source_dir)
@@ -186,9 +183,9 @@ def process_directory(source_dir: str, target_dir: str, target_sample_rate: int)
     for item in source_path.rglob('*.wav'):
         if item.is_file():
             files_processed += 1
-            if files_processed % 10 == 0:
+            if files_processed % 100 == 0:
                 logging.info(f"Processing file {files_processed}: {item.name}")
-            chunks, errors = process_audio_file(item, target_path, target_sample_rate)
+            chunks, errors = process_audio_file(item, target_path, target_sr)
             total_chunks_processed += chunks
             total_errors += errors
 
@@ -197,5 +194,5 @@ def process_directory(source_dir: str, target_dir: str, target_sample_rate: int)
 
 if __name__ == "__main__":
     process_directory(config.RESAMPLED_DIR,
-                     config.INTERIM_SPLIT_DIR,
-                     config.TARGET_SAMPLE_RATE) 
+                      config.INTERIM_SPLIT_DIR,
+                      config.TARGET_SAMPLE_RATE)

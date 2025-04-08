@@ -195,4 +195,3 @@ if __name__ == "__main__":
     script_dir = Path(__file__).parent
     mapping_file = script_dir / 'label_mapping.yaml'
     create_label_files(config.INTERIM_SPLIT_DIR, str(mapping_file))
- 
