@@ -12,9 +12,7 @@ INTERIM_DATA_DIR = os.path.join(DATA_DIR, 'interim')
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed')
 
 # Specific subdirectories for pipeline steps
-WAV_CONVERSION_DIR = os.path.join(INTERIM_DATA_DIR, 'wav')
-RESAMPLED_DIR = os.path.join(INTERIM_DATA_DIR, 'resampled')
-# SPLIT_SEGMENTS_DIR = PROCESSED_DATA_DIR # OLD: Output chunks directly under /processed/
+RESAMPLED_DIR = os.path.join(INTERIM_DATA_DIR, 'resampled')  # Combined conversion & resampling output
 INTERIM_SPLIT_DIR = os.path.join(INTERIM_DATA_DIR, 'split_with_meta') # Step 3 writes chunks+meta here
 
 # --- Audio Processing Parameters ---
