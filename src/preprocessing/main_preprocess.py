@@ -5,7 +5,7 @@ from pathlib import Path
 # Assuming config.py and step scripts are in the same directory or accessible via PYTHONPATH
 import config
 import step_1_resample
-import step_2_split_and_extract
+import step_2_process
 import step_5_create_label
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -37,7 +37,7 @@ def run_pipeline():
     logging.info("--- Running Step 2: Split Audio and Extract Features ---")
     step_2_start = time.time()
     try:
-        step_2_split_and_extract.process_directory(
+        step_2_process.process_directory(
             config.RESAMPLED_DIR,
             config.INTERIM_SPLIT_DIR,
             config.TARGET_SAMPLE_RATE
