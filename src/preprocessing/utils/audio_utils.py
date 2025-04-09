@@ -12,19 +12,18 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).parent.parent))
 import config
 
-def calculate_expected_frames(sr: int, duration_ms: int, hop_length: int) -> int:
-    """Calculate the expected number of frames for librosa MFCC with center=True.
+def is_supported_audio_file(file_path: Path) -> bool:
+    """Check if the file has a supported audio format based on its extension.
     
     Args:
-        sr: Sample rate
-        duration_ms: Duration in milliseconds
-        hop_length: Hop length for MFCC calculation
+        file_path: Path to the audio file to check.
         
     Returns:
-        Expected number of frames
+        bool: True if the file extension is in the list of supported formats.
     """
-    samples = int(sr * duration_ms / 1000)
-    return int(np.ceil(float(samples) / hop_length))
+    supported_formats = sf.available_formats()
+    file_ext = file_path.suffix.upper().lstrip('.') if file_path.suffix else ""
+    return file_ext in supported_formats
 
 def validate_chunk(chunk_data: np.ndarray, expected_samples: int) -> bool:
     """Validate audio chunk before processing.
@@ -102,13 +101,14 @@ def extract_mfcc(signal: np.ndarray, sr: int, n_mfcc: int, n_fft: int,
         logging.error(f"MFCC extraction failed: {e}")
         return None, False
 
-def process_and_save_features(chunk_data: np.ndarray, output_dir: Path, sr: int) -> bool:
+def process_and_save_features(chunk_data: np.ndarray, output_dir: Path, sr: int, expected_frames: int) -> bool:
     """Process audio chunk and save features.
     
     Args:
         chunk_data: Audio chunk data
         output_dir: Output directory for features
         sr: Sample rate
+        expected_frames: Expected number of MFCC frames
         
     Returns:
         True if processing successful, False otherwise
@@ -136,7 +136,6 @@ def process_and_save_features(chunk_data: np.ndarray, output_dir: Path, sr: int)
             return False
             
         # 4. Validate MFCC shape
-        expected_frames = calculate_expected_frames(sr, config.CHUNK_LENGTH_MS, config.HOP_LENGTH)
         if mfcc.shape != (config.N_MFCC, expected_frames):
             logging.warning(f"MFCC shape mismatch: {mfcc.shape} != {(config.N_MFCC, expected_frames)}")
             return False

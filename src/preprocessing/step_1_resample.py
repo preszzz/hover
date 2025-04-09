@@ -1,27 +1,17 @@
+"""Step 1: Convert and resample audio files."""
+
 import logging
 import numpy as np
 import librosa
 import soundfile as sf
 from pathlib import Path
 
-# Assuming config.py is in the same directory or accessible via PYTHONPATH
+# Import config and utilities
 import config
+from utils import path_utils, audio_utils
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-def is_supported_audio_file(file_path: Path) -> bool:
-    """Check if the file has a supported audio format based on its extension.
-    
-    Args:
-        file_path: Path to the audio file to check.
-        
-    Returns:
-        bool: True if the file extension is in the list of supported formats.
-    """
-    supported_formats = sf.available_formats()
-    file_ext = file_path.suffix.upper().lstrip('.') if file_path.suffix else ""
-    return file_ext in supported_formats
 
 def convert_and_resample(input_path: Path, output_path: Path, target_sr: int) -> bool:
     """Converts an audio file to WAV format and resamples it in one step if needed.
@@ -64,12 +54,8 @@ def convert_and_resample(input_path: Path, output_path: Path, target_sr: int) ->
 
     except Exception as e:
         logging.error(f"Error processing file {input_path}: {e}")
-        # Remove incomplete output file if it exists
-        if output_path.exists():
-            try:
-                output_path.unlink()
-            except OSError as rm_e:
-                logging.error(f"Failed to remove incomplete output file {output_path}: {rm_e}")
+        # Clean up incomplete output
+        path_utils.clean_directory(output_path.parent)
         return False
 
 def process_directory(source_dir: str, target_dir: str, target_sr: int):
@@ -89,13 +75,13 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
     skipped_non_audio_count = 0
     error_count = 0
 
-    for item in source_path.rglob('*'):  # rglob includes subdirectories
+    for item in source_path.rglob('*'):
         if item.is_file():
             relative_path = item.relative_to(source_path)
             output_file_path = target_path / relative_path.with_suffix('.wav')
 
             # Skip files that aren't supported audio formats
-            if not is_supported_audio_file(item):
+            if not audio_utils.is_supported_audio_file(item):
                 logging.info(f"Skipping non-audio file: {item}")
                 skipped_non_audio_count += 1
                 continue
