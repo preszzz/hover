@@ -4,7 +4,7 @@ from pathlib import Path
 
 # Assuming config.py and step scripts are in the same directory or accessible via PYTHONPATH
 import config
-import step_1_convert_and_resample
+import step_1_resample
 import step_2_split_and_extract
 import step_5_create_label
 
@@ -21,7 +21,7 @@ def run_pipeline():
     logging.info("--- Running Step 1: Convert and Resample Audio ---")
     step_1_start = time.time()
     try:
-        step_1_convert_and_resample.process_directory(
+        step_1_resample.process_directory(
             config.RAW_DATA_DIR,
             config.RESAMPLED_DIR,
             config.TARGET_SAMPLE_RATE
