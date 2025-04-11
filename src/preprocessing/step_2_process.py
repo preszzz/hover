@@ -1,13 +1,16 @@
+"""Step 2: Process audio files into labeled chunks with features."""
+
 import logging
 import numpy as np
 import soundfile as sf
 import librosa
 from pathlib import Path
-import shutil
 
-# Assuming config.py is in the same directory or accessible via PYTHONPATH
+# Import config and utilities
 import config
+from utils import audio_utils, path_utils, label_utils
 
+# Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Calculate expected dimensions once
@@ -19,7 +22,7 @@ def process_chunk(chunk_data: np.ndarray, chunk_dir: Path, sr: int) -> bool:
     
     Args:
         chunk_data: The audio chunk data as float32 numpy array
-        chunk_dir: Directory to save the features
+        output_dir: Directory to save the features
         sr: Sample rate of the audio data
         
     Returns:
@@ -79,12 +82,12 @@ def process_chunk(chunk_data: np.ndarray, chunk_dir: Path, sr: int) -> bool:
         logging.error(f"Error processing chunk: {e}")
         return False
 
-def process_audio_file(input_path: Path, output_base_dir: Path, target_sr: int) -> tuple[int, int]:
+def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapping_rules: dict) -> tuple[int, int]:
     """Process a single audio file: split into chunks and extract features.
     
     Args:
         input_path: Path to the input audio file
-        output_base_dir: Base directory for output
+        output_path: Base directory for output
         target_sr: Target sample rate
         
     Returns:
@@ -95,14 +98,20 @@ def process_audio_file(input_path: Path, output_base_dir: Path, target_sr: int) 
 
     try:
         # Get Original Path Info
-        resampled_base_path = Path(config.RESAMPLED_DIR)
-        if not input_path.is_relative_to(resampled_base_path):
-            logging.error(f"Input path {input_path} is not relative to RESAMPLED_DIR {resampled_base_path}")
+        base_path = Path(config.RESAMPLED_DIR)
+        if not input_path.is_relative_to(base_path):
+            logging.error(f"Input path {input_path} is not relative to RESAMPLED_DIR {base_path}")
             return 0, 1
 
         # Preserve the exact same directory structure from resampled dir
-        relative_path = input_path.relative_to(resampled_base_path)
+        relative_path = input_path.relative_to(base_path)
         relative_path_no_ext = relative_path.with_suffix('')
+
+        # Get label from path
+        label = label_utils.get_label(relative_path, mapping_rules)
+        if not label:
+            logging.error(f"Could not determine label for {input_path}")
+            return 0, 1
 
         # Verify sample rate
         info = sf.info(input_path)
@@ -120,7 +129,7 @@ def process_audio_file(input_path: Path, output_base_dir: Path, target_sr: int) 
         # Handle short file
         if info.frames <= EXPECTED_SAMPLES:
             chunk_name_base = input_path.stem
-            chunk_dir = output_base_dir / relative_path_no_ext / chunk_name_base
+            chunk_dir = path_utils.get_final_chunk_path(output_path, label, chunk_name_base)
             chunk_dir.mkdir(parents=True, exist_ok=True)
 
             # Pad if necessary
@@ -147,7 +156,7 @@ def process_audio_file(input_path: Path, output_base_dir: Path, target_sr: int) 
 
             chunk_index = i + 1
             chunk_name_base = f"{input_path.stem}_chunk_{chunk_index}"
-            chunk_dir = output_base_dir / relative_path_no_ext / chunk_name_base
+            chunk_dir = output_path / relative_path_no_ext / chunk_name_base
             chunk_dir.mkdir(parents=True, exist_ok=True)
 
             if process_chunk(chunk_data, chunk_dir, target_sr):
@@ -171,6 +180,13 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
         target_dir: Directory to save processed chunks with features
         target_sr: Expected sample rate of input files
     """
+    script_dir = Path(__file__).parent
+    mapping_file = script_dir / 'label_mapping.yaml'
+    mapping_rules = label_utils.load_label_mapping(mapping_file)
+    if mapping_rules is None:
+        logging.critical("Failed to load label mapping. Aborting label creation.")
+        return
+    
     logging.info(f"Starting split and feature extraction from '{source_dir}' to '{target_dir}'")
     source_path = Path(source_dir)
     target_path = Path(target_dir)
@@ -185,7 +201,7 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
             files_processed += 1
             if files_processed % 100 == 0:
                 logging.info(f"Processing file {files_processed}: {item.name}")
-            chunks, errors = process_audio_file(item, target_path, target_sr)
+            chunks, errors = process_audio_file(item, target_path, target_sr, mapping_rules)
             total_chunks_processed += chunks
             total_errors += errors
 
@@ -194,5 +210,5 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
 
 if __name__ == "__main__":
     process_directory(config.RESAMPLED_DIR,
-                      config.INTERIM_SPLIT_DIR,
+                      config.PROCESSED_DATA_DIR,
                       config.TARGET_SAMPLE_RATE)
