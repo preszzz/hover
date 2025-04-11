@@ -86,9 +86,6 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
                 skipped_non_audio_count += 1
                 continue
 
-            # Ensure the output directory for the file exists
-            output_file_path.parent.mkdir(parents=True, exist_ok=True)
-
             if convert_and_resample(item, output_file_path, target_sr):
                 processed_count += 1
             else:

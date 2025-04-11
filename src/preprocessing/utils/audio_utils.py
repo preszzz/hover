@@ -101,7 +101,7 @@ def extract_mfcc(signal: np.ndarray, sr: int, n_mfcc: int, n_fft: int,
         logging.error(f"MFCC extraction failed: {e}")
         return None, False
 
-def process_and_save_features(chunk_data: np.ndarray, output_dir: Path, sr: int, expected_frames: int) -> bool:
+def save_features(chunk_data: np.ndarray, output_dir: Path, sr: int, expected_frames: int, mfcc: np.ndarray) -> bool:
     """Process audio chunk and save features.
     
     Args:
@@ -114,32 +114,6 @@ def process_and_save_features(chunk_data: np.ndarray, output_dir: Path, sr: int,
         True if processing successful, False otherwise
     """
     try:
-        # 1. Validate chunk
-        if not validate_chunk(chunk_data, config.CHUNK_LENGTH_SAMPLES):
-            return False
-            
-        # 2. Normalize audio
-        normalized_signal, norm_success = normalize_audio(chunk_data, config.NORMALIZATION_DB)
-        if not norm_success:
-            return False
-            
-        # 3. Extract MFCC
-        mfcc, mfcc_success = extract_mfcc(
-            normalized_signal,
-            sr,
-            config.N_MFCC,
-            config.N_FFT,
-            config.HOP_LENGTH,
-            config.FMAX
-        )
-        if not mfcc_success:
-            return False
-            
-        # 4. Validate MFCC shape
-        if mfcc.shape != (config.N_MFCC, expected_frames):
-            logging.warning(f"MFCC shape mismatch: {mfcc.shape} != {(config.N_MFCC, expected_frames)}")
-            return False
-            
         # 5. Save features
         # Save raw signal as int16 CSV
         signal_int16 = (chunk_data * np.iinfo(np.int16).max).astype(np.int16)

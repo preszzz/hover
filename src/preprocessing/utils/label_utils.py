@@ -37,7 +37,7 @@ def load_label_mapping(mapping_path: Path) -> dict | None:
         logging.error(f"Error loading label mapping file {mapping_path}: {e}")
         return None
 
-def get_label_from_path(relative_path: Path, mapping_rules: dict) -> str:
+def get_label(relative_path: Path, mapping_rules: dict) -> str:
     """Determine label based on file's relative path using mapping rules.
     
     Args:
