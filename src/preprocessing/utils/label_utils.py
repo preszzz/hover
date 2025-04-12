@@ -101,22 +101,3 @@ def get_label(relative_path: Path, mapping_rules: dict) -> str:
 
     logging.debug(f"No specific rule matched for '{relative_path_str}' in {dataset_name}. Using default: {default_label}")
     return default_label
-
-def write_label_file(output_dir: Path, label: str) -> bool:
-    """Write label to a text file in the output directory.
-    
-    Args:
-        output_dir: Directory to write the label file
-        label: Label string to write
-        
-    Returns:
-        True if successful, False otherwise
-    """
-    try:
-        label_path = output_dir / "label.txt"
-        with open(label_path, 'w') as f:
-            f.write(label)
-        return True
-    except Exception as e:
-        logging.error(f"Failed to write label file: {e}")
-        return False 
