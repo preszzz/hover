@@ -17,13 +17,14 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 EXPECTED_SAMPLES = config.CHUNK_LENGTH_SAMPLES
 EXPECTED_FRAMES = int(np.ceil(float(EXPECTED_SAMPLES) / config.HOP_LENGTH))
 
-def process_chunk(chunk_data: np.ndarray, output_dir: Path, sr: int) -> bool:
+def process_chunk(chunk_data: np.ndarray, output_dir: Path, sr: int, label: str) -> bool:
     """Process a single audio chunk: validate, normalize, extract and save features.
     
     Args:
         chunk_data: The audio chunk data as float32 numpy array
         output_dir: Directory to save the features
         sr: Sample rate of the audio data
+        label: Label string to write to label file
         
     Returns:
         bool: True if processing was successful, False if validation failed
@@ -55,12 +56,15 @@ def process_chunk(chunk_data: np.ndarray, output_dir: Path, sr: int) -> bool:
             logging.warning(f"MFCC shape mismatch ({mfcc.shape} != {(config.N_MFCC, EXPECTED_FRAMES)})")
             return False
 
+        # Save features and label
         return audio_utils.save_features(
             chunk_data,
             mfcc,
+            label,
             output_dir,
             config.SIGNAL_FILENAME,
-            config.MFCC_FILENAME
+            config.MFCC_FILENAME,
+            config.LABEL_FILENAME
         )
 
     except Exception as e:
@@ -76,6 +80,7 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
         input_path: Path to the input audio file
         output_path: Base directory for output
         target_sr: Target sample rate
+        mapping_rules: Dictionary of labeling rules
         
     Returns:
         tuple[int, int]: (chunks_processed, errors)
@@ -129,7 +134,7 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
             chunk_dir.mkdir(parents=True, exist_ok=True)
 
             # Process the chunk
-            if process_chunk(audio_data, chunk_dir, target_sr):
+            if process_chunk(audio_data, chunk_dir, target_sr, label):
                 chunks_processed += 1
             else:
                 errors += 1
@@ -146,7 +151,7 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
             chunk_dir = path_utils.get_final_chunk_path(output_path, dataset_name, label, chunk_name)
             chunk_dir.mkdir(parents=True, exist_ok=True)
 
-            if process_chunk(chunk_data, chunk_dir, target_sr):
+            if process_chunk(chunk_data, chunk_dir, target_sr, label):
                 chunks_processed += 1
             else:
                 errors += 1
