@@ -34,17 +34,23 @@ The pipeline relies on the structure within these dataset directories (and poten
 
 ## Preprocessing Pipeline
 
-The pipeline in `src/preprocessing/` processes raw audio into features for model training:
+The pipeline in `src/preprocessing/` processes raw audio into features for model training in two streamlined steps:
 
-1. **Convert to WAV** (`step_1_convert_to_wav.py`): Standardizes audio to WAV format (PCM16)
-2. **Resample** (`step_2_resample.py`): Converts to target sample rate (default: 16kHz)
-3. **Split** (`step_3_split.py`): Divides into fixed-length chunks (default: 1 second)
-4. **Extract Features** (`step_4_extract_features.py`): 
+1. **Convert and Resample** (`step_1_resample.py`):
+   * Converts audio to WAV format (PCM16)
+   * Resamples to target rate (default: 16kHz)
+   * Validates format and sample rate
+   * Outputs to `data/interim/`
+
+2. **Process and Label** (`step_2_process.py`):
+   * Splits audio into fixed-length chunks (default: 1 second)
    * Validates chunks (length, silence)
-   * Saves raw signals (`.csv`) and MFCCs (`.npy`) 
-5. **Create Labels** (`step_5_create_label.py`):
-   * Applies labeling rules from `label_mapping.yaml`
-   * Organizes final output into `data/processed/DatasetName/Label/Chunk/`
+   * Extracts features (raw signals and MFCCs)
+   * Applies labels based on `label_mapping.yaml` rules
+   * Organizes output into `data/processed/DatasetName/Label/Chunk/`
+   * Shows progress with completion percentage
+
+The pipeline provides clear progress tracking, showing the total number of files to process and current completion percentage.
 
 ### Running the Pipeline
 
@@ -54,7 +60,10 @@ The pipeline in `src/preprocessing/` processes raw audio into features for model
    uv run src/preprocessing/main_preprocess.py
    ```
 
-The final output in `data/processed/` will contain organized chunks with features (`.npy`, `.csv`) and labels (`label.txt`).
+The final output in `data/processed/` will contain organized chunks with:
+- Raw signal data (`.csv`)
+- MFCC features (`.npy`)
+- Label information (`.txt`)
 
 ## Required Dependencies
 
