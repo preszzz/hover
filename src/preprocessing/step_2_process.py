@@ -17,7 +17,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 EXPECTED_SAMPLES = config.CHUNK_LENGTH_SAMPLES
 EXPECTED_FRAMES = int(np.ceil(float(EXPECTED_SAMPLES) / config.HOP_LENGTH))
 
-def process_chunk(chunk_data: np.ndarray, chunk_dir: Path, sr: int) -> bool:
+def process_chunk(chunk_data: np.ndarray, output_dir: Path, sr: int) -> bool:
     """Process a single audio chunk: validate, normalize, extract and save features.
     
     Args:
@@ -29,57 +29,44 @@ def process_chunk(chunk_data: np.ndarray, chunk_dir: Path, sr: int) -> bool:
         bool: True if processing was successful, False if validation failed
     """
     try:
-        # 1. Validation (Length)
-        if len(chunk_data) != EXPECTED_SAMPLES:
-            logging.warning(f"Chunk length mismatch ({len(chunk_data)} != {EXPECTED_SAMPLES})")
+        # Validation (Length)
+        if not audio_utils.validate_chunk(chunk_data, EXPECTED_SAMPLES):
             return False
 
-        # 2. Convert to int16 for saving and silence check
-        signal_int16 = (chunk_data * np.iinfo(np.int16).max).astype(np.int16)
-        if np.all(signal_int16 == 0):
-            return False  # Silent chunk
-
-        # 3. Save Raw Signal (int16)
-        signal_path = chunk_dir / config.SIGNAL_FILENAME
-        np.savetxt(signal_path, chunk_data, delimiter=',', fmt='%.6f')
-
-        # 4. Normalization
-        max_abs_val = np.max(np.abs(chunk_data))
-        if max_abs_val == 0:
-            logging.error(f"Max absolute value is zero after passing silence check?")
+        # Normalize audio
+        normalized_signal, norm_success = audio_utils.normalize_audio(chunk_data, config.NORMALIZATION_DB)
+        if not norm_success:
+            return False
+        
+        # Extract MFCC
+        mfcc, mfcc_success = audio_utils.extract_mfcc(
+            normalized_signal,
+            sr,
+            config.N_MFCC,
+            config.N_FFT,
+            config.HOP_LENGTH,
+            config.FMAX
+        )
+        if not mfcc_success:
             return False
 
-        # Normalize to have peak at -20dB
-        normalized_signal = chunk_data / max_abs_val
-        normalized_signal *= (10 ** (config.NORMALIZATION_DB / 20))
-
-        # 5. Validation (Normalization result)
-        if not np.isfinite(normalized_signal).all():
-            logging.warning(f"Non-finite values after normalization")
-            return False
-
-        # 6. Extract MFCCs
-        mfcc = librosa.feature.mfcc(y=normalized_signal,
-                                  sr=sr,
-                                  n_mfcc=config.N_MFCC,
-                                  n_fft=config.N_FFT,
-                                  hop_length=config.HOP_LENGTH,
-                                  fmax=config.FMAX,
-                                  center=True)
-
-        # 7. Validation (MFCC Shape)
+        # Validation (MFCC Shape)
         if mfcc.shape != (config.N_MFCC, EXPECTED_FRAMES):
             logging.warning(f"MFCC shape mismatch ({mfcc.shape} != {(config.N_MFCC, EXPECTED_FRAMES)})")
             return False
 
-        # 8. Save MFCCs
-        mfcc_path = chunk_dir / config.MFCC_FILENAME
-        np.save(mfcc_path, mfcc)
-
-        return True
+        return audio_utils.save_features(
+            chunk_data,
+            mfcc,
+            output_dir,
+            config.SIGNAL_FILENAME,
+            config.MFCC_FILENAME
+        )
 
     except Exception as e:
         logging.error(f"Error processing chunk: {e}")
+        if output_dir.exists():
+            path_utils.clean_directory(output_dir)
         return False
 
 def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapping_rules: dict) -> tuple[int, int]:
@@ -98,14 +85,14 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
 
     try:
         # Get Original Path Info
-        base_path = Path(config.RESAMPLED_DIR)
+        base_path = Path(config.INTERIM_DATA_DIR)
         if not input_path.is_relative_to(base_path):
-            logging.error(f"Input path {input_path} is not relative to RESAMPLED_DIR {base_path}")
+            logging.error(f"Input path {input_path} is not relative to INTERIM_DATA_DIR {base_path}")
             return 0, 1
 
         # Preserve the exact same directory structure from resampled dir
         relative_path = input_path.relative_to(base_path)
-        relative_path_no_ext = relative_path.with_suffix('')
+        dataset_name = relative_path.parts[0]
 
         # Get label from path
         label = label_utils.get_label(relative_path, mapping_rules)
@@ -128,42 +115,40 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
 
         # Handle short file
         if info.frames <= EXPECTED_SAMPLES:
-            chunk_name_base = input_path.stem
-            chunk_dir = path_utils.get_final_chunk_path(output_path, label, chunk_name_base)
-            chunk_dir.mkdir(parents=True, exist_ok=True)
+            if info.frames <= EXPECTED_SAMPLES // 2:
+                logging.info(f"File too short: {input_path}")
+                return 0, 1
 
             # Pad if necessary
-            if EXPECTED_SAMPLES / 2 < info.frames < EXPECTED_SAMPLES:
-                padded_data = np.zeros(EXPECTED_SAMPLES, dtype=np.float32)
-                padded_data[:len(audio_data)] = audio_data
-                audio_data = padded_data
+            padded_data = np.zeros(EXPECTED_SAMPLES, dtype=np.float32)
+            padded_data[:len(audio_data)] = audio_data
+            audio_data = padded_data
+
+            chunk_name = input_path.stem
+            chunk_dir = path_utils.get_final_chunk_path(output_path, dataset_name, label, chunk_name)
+            chunk_dir.mkdir(parents=True, exist_ok=True)
 
             # Process the chunk
             if process_chunk(audio_data, chunk_dir, target_sr):
                 chunks_processed += 1
             else:
-                if chunk_dir.exists():
-                    shutil.rmtree(chunk_dir)
                 errors += 1
             return chunks_processed, errors
 
         # Process full-length file in chunks
         num_full_chunks = info.frames // EXPECTED_SAMPLES
         for i in range(num_full_chunks):
-            start_sample = i * EXPECTED_SAMPLES
-            end_sample = (i + 1) * EXPECTED_SAMPLES
-            chunk_data = audio_data[start_sample:end_sample]
+            start = i * EXPECTED_SAMPLES
+            end = (i + 1) * EXPECTED_SAMPLES
+            chunk_data = audio_data[start:end]
 
-            chunk_index = i + 1
-            chunk_name_base = f"{input_path.stem}_chunk_{chunk_index}"
-            chunk_dir = output_path / relative_path_no_ext / chunk_name_base
+            chunk_name = f"{input_path.stem}_chunk_{i + 1}"
+            chunk_dir = path_utils.get_final_chunk_path(output_path, dataset_name, label, chunk_name)
             chunk_dir.mkdir(parents=True, exist_ok=True)
 
             if process_chunk(chunk_data, chunk_dir, target_sr):
                 chunks_processed += 1
             else:
-                if chunk_dir.exists():
-                    shutil.rmtree(chunk_dir)
                 errors += 1
 
     except Exception as e:
@@ -209,6 +194,6 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
                 f"Chunks processed: {total_chunks_processed}, Errors: {total_errors}")
 
 if __name__ == "__main__":
-    process_directory(config.RESAMPLED_DIR,
+    process_directory(config.INTERIM_DATA_DIR,
                       config.PROCESSED_DATA_DIR,
                       config.TARGET_SAMPLE_RATE)

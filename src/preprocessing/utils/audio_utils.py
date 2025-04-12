@@ -6,12 +6,6 @@ import soundfile as sf
 import librosa
 from pathlib import Path
 
-# Import config from parent directory
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).parent.parent))
-import config
-
 def is_supported_audio_file(file_path: Path) -> bool:
     """Check if the file has a supported audio format based on its extension.
     
@@ -71,8 +65,14 @@ def normalize_audio(signal: np.ndarray, target_db: float) -> tuple[np.ndarray, b
         
     return normalized_signal, True
 
-def extract_mfcc(signal: np.ndarray, sr: int, n_mfcc: int, n_fft: int, 
-                hop_length: int, fmax: int) -> tuple[np.ndarray, bool]:
+def extract_mfcc(
+        signal: np.ndarray,
+        sr: int,
+        n_mfcc: int,
+        n_fft: int,
+        hop_length: int,
+        fmax: int
+) -> tuple[np.ndarray, bool]:
     """Extract MFCC features from audio signal.
     
     Args:
@@ -101,7 +101,13 @@ def extract_mfcc(signal: np.ndarray, sr: int, n_mfcc: int, n_fft: int,
         logging.error(f"MFCC extraction failed: {e}")
         return None, False
 
-def save_features(chunk_data: np.ndarray, output_dir: Path, sr: int, expected_frames: int, mfcc: np.ndarray) -> bool:
+def save_features(
+        chunk_data: np.ndarray,
+        mfcc: np.ndarray,
+        output_dir: Path,
+        signal_filename: str,
+        mfcc_filename: str
+) -> bool:
     """Process audio chunk and save features.
     
     Args:
@@ -114,14 +120,12 @@ def save_features(chunk_data: np.ndarray, output_dir: Path, sr: int, expected_fr
         True if processing successful, False otherwise
     """
     try:
-        # 5. Save features
-        # Save raw signal as int16 CSV
-        signal_int16 = (chunk_data * np.iinfo(np.int16).max).astype(np.int16)
-        signal_path = output_dir / config.SIGNAL_FILENAME
-        np.savetxt(signal_path, signal_int16, delimiter=',', fmt='%d')
+        # Save raw signal as CSV
+        signal_path = output_dir / signal_filename
+        np.savetxt(signal_path, chunk_data, delimiter=',', fmt='%.6f')
         
         # Save MFCC as NPY
-        mfcc_path = output_dir / config.MFCC_FILENAME
+        mfcc_path = output_dir / mfcc_filename
         np.save(mfcc_path, mfcc)
         
         return True

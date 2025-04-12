@@ -97,4 +97,4 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
 
 if __name__ == "__main__":
     # Example usage: Reads directories from config
-    process_directory(config.RAW_DATA_DIR, config.RESAMPLED_DIR, config.TARGET_SAMPLE_RATE) 
+    process_directory(config.RAW_DATA_DIR, config.INTERIM_DATA_DIR, config.TARGET_SAMPLE_RATE) 
