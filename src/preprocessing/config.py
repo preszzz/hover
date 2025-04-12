@@ -24,7 +24,7 @@ FMAX = 8000               # Maximum frequency for MEL filters (Hz)
 NORMALIZATION_DB = -20.0  # dB level for normalization reference
 
 # --- Output File Names ---
-SIGNAL_FILENAME = 'signal.csv'   # Raw signal data as CSV
+SIGNAL_FILENAME = 'signal.npy'   # Raw signal data as numpy array
 MFCC_FILENAME = 'mfcc.npy'       # MFCC features as numpy array
 LABEL_FILENAME = 'label.txt'     # Label as text file
 # --- Misc ---

@@ -116,7 +116,7 @@ def save_features(
         chunk_data: Raw audio chunk data
         mfcc: MFCC features array
         output_dir: Directory to save features
-        signal_filename: Filename for raw signal CSV
+        signal_filename: Filename for raw signal NPY
         mfcc_filename: Filename for MFCC NPY
         label: label string to write to label file
         
@@ -124,9 +124,9 @@ def save_features(
         True if save successful, False otherwise
     """
     try:
-        # Save raw signal as CSV
+        # Save raw signal as NPY
         signal_path = output_dir / signal_filename
-        np.savetxt(signal_path, chunk_data, delimiter=',', fmt='%.6f')
+        np.save(signal_path, chunk_data)
         
         # Save MFCC as NPY
         mfcc_path = output_dir / mfcc_filename
@@ -141,4 +141,4 @@ def save_features(
         
     except Exception as e:
         logging.error(f"Feature processing failed: {e}")
-        return False 
+        return False
