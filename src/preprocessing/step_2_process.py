@@ -182,6 +182,10 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
     target_path = Path(target_dir)
     target_path.mkdir(parents=True, exist_ok=True)
 
+    # Count total files first
+    total_files = sum(1 for _ in source_path.rglob('*.wav') if _.is_file())
+    logging.info(f"Found {total_files} WAV files to process")
+
     total_chunks_processed = 0
     total_errors = 0
     files_processed = 0
@@ -190,7 +194,8 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
         if item.is_file():
             files_processed += 1
             if files_processed % 100 == 0:
-                logging.info(f"Processing file {files_processed}: {item.name}")
+                progress_percent = (files_processed / total_files) * 100
+                logging.info(f"Progress: {files_processed} of {total_files} files ({progress_percent:.1f}%)")
             chunks, errors = process_audio_file(item, target_path, target_sr, mapping_rules)
             total_chunks_processed += chunks
             total_errors += errors
