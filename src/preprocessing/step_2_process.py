@@ -138,6 +138,8 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
                 chunks_processed += 1
             else:
                 errors += 1
+                if chunk_dir.exists():
+                    path_utils.clean_directory(chunk_dir)
             return chunks_processed, errors
 
         # Process full-length file in chunks
@@ -155,6 +157,8 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
                 chunks_processed += 1
             else:
                 errors += 1
+                if chunk_dir.exists():
+                    path_utils.clean_directory(chunk_dir)
 
     except Exception as e:
         logging.error(f"Error processing file {input_path}: {e}")
