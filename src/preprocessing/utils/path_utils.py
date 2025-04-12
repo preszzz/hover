@@ -21,7 +21,7 @@ def get_final_chunk_path(base_dir: Path, dataset: str, label: str, chunk_name: s
     return base_dir / dataset / label_dirname / chunk_name
 
 def clean_directory(path: Path) -> bool:
-    """Remove an empty directory.
+    """Remove a directory and all its contents recursively.
     
     Args:
         path: Directory path to remove
@@ -33,4 +33,4 @@ def clean_directory(path: Path) -> bool:
         if path.exists():
             shutil.rmtree(path)
     except Exception as e:
-        logging.error(f"Failed to remove directory {path}: {e}")
+        logging.error(f"Failed to clean directory {path}: {e}")

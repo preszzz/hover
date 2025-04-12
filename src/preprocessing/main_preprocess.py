@@ -1,19 +1,20 @@
+"""Main script to run the audio preprocessing pipeline."""
+
 import logging
 import time
-from pathlib import Path
 
-# Assuming config.py and step scripts are in the same directory or accessible via PYTHONPATH
+# Import config
 import config
 import step_1_resample
 import step_2_process
-import step_5_create_label
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 def run_pipeline():
-    """Executes the full audio preprocessing pipeline step-by-step."""
-
+    """Executes the audio preprocessing pipeline:
+    1. Convert and resample audio files
+    2. Process audio (extract features and create labels)
+    """
     start_time = time.time()
     logging.info("--- Starting Audio Preprocessing Pipeline ---")
 
@@ -33,8 +34,8 @@ def run_pipeline():
     step_1_duration = time.time() - step_1_start
     logging.info(f"--- Step 1 Finished (Duration: {step_1_duration:.2f} seconds) ---")
 
-    # Step 2: Split audio and extract features
-    logging.info("--- Running Step 2: Split Audio and Extract Features ---")
+    # Step 2: Process audio and create labels
+    logging.info("--- Running Step 2: Process Audio and Create Labels ---")
     step_2_start = time.time()
     try:
         step_2_process.process_directory(
@@ -49,28 +50,12 @@ def run_pipeline():
     step_2_duration = time.time() - step_2_start
     logging.info(f"--- Step 2 Finished (Duration: {step_2_duration:.2f} seconds) ---")
 
-    # Step 3: Create Label Files (reading from INTERIM_SPLIT_DIR)
-    logging.info("--- Running Step 3: Create Label Files & Move to Processed ---")
-    step_3_start = time.time()
-    try:
-        script_dir = Path(__file__).parent
-        mapping_file = script_dir / 'label_mapping.yaml'
-        step_5_create_label.create_label_files(config.INTERIM_SPLIT_DIR,
-                                             str(mapping_file))
-    except Exception as e:
-        logging.error(f"Error during Step 3 (Create Label Files): {e}", exc_info=True)
-        logging.critical("Pipeline halted due to error in Step 3.")
-        return
-    step_3_duration = time.time() - step_3_start
-    logging.info(f"--- Step 3 Finished (Duration: {step_3_duration:.2f} seconds) ---")
-
+    # Pipeline summary
     total_duration = time.time() - start_time
-    logging.info(f"--- Audio Preprocessing Pipeline Finished Successfully --- ")
-    logging.info(f"Total execution time: {total_duration:.2f} seconds")
-    logging.info(f"Processed data (features and labels) located in: {config.PROCESSED_DATA_DIR}")
-    logging.info(f"Intermediate files located in: {config.INTERIM_DATA_DIR}")
-    logging.info(f"Labeling rules defined in: src/preprocessing/label_mapping.yaml")
-
+    logging.info("--- Audio Preprocessing Pipeline Complete ---")
+    logging.info(f"Total Duration: {total_duration:.2f}s")
+    logging.info(f"Processed Data: {config.PROCESSED_DATA_DIR}")
+    logging.info(f"Interim Data: {config.INTERIM_DATA_DIR}")
 
 if __name__ == "__main__":
     run_pipeline() 

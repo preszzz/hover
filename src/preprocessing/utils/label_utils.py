@@ -39,13 +39,14 @@ def load_label_mapping(mapping_path: Path) -> dict | None:
 
 def get_label(relative_path: Path, mapping_rules: dict) -> str:
     """Determine label based on file's relative path using mapping rules.
+    First part of path is treated as dataset name.
     
     Args:
-        relative_path: Path relative to the interim directory
+        relative_path: Path relative to the interim directory (includes dataset name)
         mapping_rules: Dictionary of labeling rules from label_mapping.yaml
         
     Returns:
-        Determined label string
+        Determined label string, 'unknown' if no rules match
     """
     # First part of the path is the dataset name
     dataset_name = relative_path.parts[0]

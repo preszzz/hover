@@ -104,20 +104,24 @@ def extract_mfcc(
 def save_features(
         chunk_data: np.ndarray,
         mfcc: np.ndarray,
+        label: str,
         output_dir: Path,
         signal_filename: str,
-        mfcc_filename: str
+        mfcc_filename: str,
+        label_filename: str
 ) -> bool:
-    """Process audio chunk and save features.
+    """Save audio features and label to files.
     
     Args:
-        chunk_data: Audio chunk data
-        output_dir: Output directory for features
-        sr: Sample rate
-        expected_frames: Expected number of MFCC frames
+        chunk_data: Raw audio chunk data
+        mfcc: MFCC features array
+        output_dir: Directory to save features
+        signal_filename: Filename for raw signal CSV
+        mfcc_filename: Filename for MFCC NPY
+        label: label string to write to label file
         
     Returns:
-        True if processing successful, False otherwise
+        True if save successful, False otherwise
     """
     try:
         # Save raw signal as CSV
@@ -127,6 +131,11 @@ def save_features(
         # Save MFCC as NPY
         mfcc_path = output_dir / mfcc_filename
         np.save(mfcc_path, mfcc)
+        
+        # Save label as txt
+        label_path = output_dir / label_filename
+        with open(label_path, 'w') as f:
+            f.write(label)
         
         return True
         
