@@ -11,21 +11,17 @@ RAW_DATA_DIR = os.path.join(DATA_DIR, 'raw')
 INTERIM_DATA_DIR = os.path.join(DATA_DIR, 'interim')
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed')
 
-# Specific subdirectories for pipeline steps
-RESAMPLED_DIR = os.path.join(INTERIM_DATA_DIR, 'resampled')
-INTERIM_SPLIT_DIR = os.path.join(INTERIM_DATA_DIR, 'split_with_meta')
-
 # --- Audio Processing Parameters ---
 TARGET_SAMPLE_RATE = 16000  # Hz (16kHz)
 CHUNK_LENGTH_MS = 1000      # milliseconds (1 second)
 CHUNK_LENGTH_SAMPLES = int(TARGET_SAMPLE_RATE * CHUNK_LENGTH_MS / 1000)  # Number of samples in one chunk
 
 # --- MFCC Parameters (Based on reference project) ---
-N_MFCC = 40          # Number of MFCC coefficients
-N_FFT = 2048         # FFT window size
-HOP_LENGTH = 512     # Hop length for STFT
-FMAX = 8000          # Maximum frequency for MEL filters (Hz)
-NORMALIZATION_DB = -20.0 # dB level for normalization reference
+N_MFCC = 40               # Number of MFCC coefficients
+N_FFT = 2048              # FFT window size
+HOP_LENGTH = 512          # Hop length for STFT
+FMAX = 8000               # Maximum frequency for MEL filters (Hz)
+NORMALIZATION_DB = -20.0  # dB level for normalization reference
 
 # --- Output File Names ---
 SIGNAL_FILENAME = 'signal.csv'   # Raw signal data as CSV

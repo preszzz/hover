@@ -23,7 +23,7 @@ def run_pipeline():
     try:
         step_1_resample.process_directory(
             config.RAW_DATA_DIR,
-            config.RESAMPLED_DIR,
+            config.INTERIM_DATA_DIR,
             config.TARGET_SAMPLE_RATE
         )
     except Exception as e:
@@ -38,8 +38,8 @@ def run_pipeline():
     step_2_start = time.time()
     try:
         step_2_process.process_directory(
-            config.RESAMPLED_DIR,
-            config.INTERIM_SPLIT_DIR,
+            config.INTERIM_DATA_DIR,
+            config.PROCESSED_DATA_DIR,
             config.TARGET_SAMPLE_RATE
         )
     except Exception as e:
