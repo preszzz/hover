@@ -51,19 +51,35 @@ def normalize_audio(signal: np.ndarray, target_db: float) -> tuple[np.ndarray, b
     Returns:
         Tuple of (normalized signal, success flag)
     """
-    max_abs_val = np.max(np.abs(signal))
-    if max_abs_val == 0:
-        return signal, False
-
-    # Normalize to target dB
-    normalized_signal = signal / max_abs_val
-    normalized_signal *= (10 ** (target_db / 20))
-    
-    # Validate result
-    if not np.isfinite(normalized_signal).all():
+    # Handle silent/empty signals
+    if np.max(np.abs(signal)) < 1e-10:
         return signal, False
         
-    return normalized_signal, True
+    try:
+        # Calculate current RMS and dB
+        rms = np.sqrt(np.mean(signal ** 2))
+        current_db = 20 * np.log10(rms)
+        
+        # Calculate gain needed
+        gain_db = target_db - current_db
+        gain_factor = 10 ** (gain_db / 20)
+        
+        # Apply gain
+        normalized_signal = signal * gain_factor
+        
+        # Prevent clipping if needed
+        if np.max(np.abs(normalized_signal)) > 0.95:  # Using 0.95 as a safety margin
+            normalized_signal = 0.95 * normalized_signal / np.max(np.abs(normalized_signal))
+        
+        # Validate result
+        if not np.isfinite(normalized_signal).all():
+            return signal, False
+            
+        return normalized_signal, True
+        
+    except Exception as e:
+        logging.warning(f"Normalization failed: {e}")
+        return signal, False
 
 def extract_mfcc(
         signal: np.ndarray,
