@@ -22,3 +22,6 @@ interim/
 
 # Temp
 .memory-bank/
+
+# Environment variables
+.env
