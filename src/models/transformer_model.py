@@ -1,106 +1,98 @@
 """Placeholder for Transformer model definition."""
 
-import tensorflow as tf
-from tensorflow.keras import layers, models
+from transformers import AutoFeatureExtractor, AutoModelForAudioClassification
+import torch # Import PyTorch
+import torch.nn as nn # Import PyTorch neural network module
 
-def build_transformer_model(input_shape: tuple, num_classes: int, **kwargs) -> models.Model:
-    """Builds a placeholder Transformer model.
+# Define the pre-trained model checkpoint
+MODEL_CHECKPOINT = "MIT/ast-finetuned-audioset-10-10-0.4593" # Example AST model
+# NUM_LABELS = 10 # Defined in feature_loader now, or passed dynamically
+
+def build_transformer_model(num_classes: int, model_checkpoint: str = MODEL_CHECKPOINT):
+    """
+    Loads a pre-trained Audio Spectrogram Transformer (AST) model
+    from Hugging Face for PyTorch.
 
     Args:
-        input_shape: Shape of the input sequence (e.g., (seq_length, embed_dim)).
-        num_classes: Number of output classes.
-        **kwargs: Additional hyperparameters for the transformer 
-                  (e.g., num_heads, ff_dim, num_transformer_blocks, dropout_rate).
+        num_classes (int): The number of output classes for the classification layer.
+        model_checkpoint (str): The Hugging Face model identifier.
 
     Returns:
-        A compiled Keras Model (placeholder).
+        torch.nn.Module: The PyTorch AST model with a potentially resized classification head.
     """
-    
-    # Extract potential hyperparameters
-    num_heads = kwargs.get('num_heads', 4)
-    ff_dim = kwargs.get('ff_dim', 64) # Hidden layer size in feed forward network inside transformer
-    num_transformer_blocks = kwargs.get('num_transformer_blocks', 2)
-    dropout_rate = kwargs.get('dropout_rate', 0.1)
-    
-    print("--- Transformer Model Placeholder --- ")
-    print("Actual Transformer layers (MultiHeadAttention, FeedForward, LayerNormalization, PositionalEmbedding) need to be defined.")
-    print("Input shape expected (e.g.):", input_shape)
-    print("Number of classes:", num_classes)
-    print(f"Hyperparameters (example): heads={num_heads}, ff_dim={ff_dim}, blocks={num_transformer_blocks}")
-    print("--- End Placeholder --- ")
+    # Load the pre-trained AST model for PyTorch
+    # Set ignore_mismatched_sizes=True to allow replacing the classification head
+    # if the number of classes differs from the pre-trained model.
+    model = AutoModelForAudioClassification.from_pretrained(
+        model_checkpoint,
+        num_labels=num_classes,
+        ignore_mismatched_sizes=True, # Allows replacing the classification head
+    )
+    # The model returned is already a torch.nn.Module
+    return model
 
-    # --- Placeholder Implementation --- 
-    # Define Input layer
-    # inputs = layers.Input(shape=input_shape)
+def get_feature_extractor(model_checkpoint: str = MODEL_CHECKPOINT):
+    """
+    Loads the feature extractor associated with the pre-trained AST model.
 
-    # Add Positional Embedding layer
-    # x = PositionalEmbedding(input_shape[0], input_shape[1])(inputs)
+    Args:
+        model_checkpoint (str): The Hugging Face model identifier.
 
-    # Create multiple Transformer Blocks
-    # for _ in range(num_transformer_blocks):
-    #     x = TransformerBlock(input_shape[1], num_heads, ff_dim, dropout_rate)(x)
+    Returns:
+        transformers.feature_extraction_utils.FeatureExtractionMixin:
+            The feature extractor instance.
+    """
+    feature_extractor = AutoFeatureExtractor.from_pretrained(model_checkpoint)
+    return feature_extractor
 
-    # Pooling or Flattening layer
-    # x = layers.GlobalAveragePooling1D()(x) # Or layers.Flatten()
-    # x = layers.Dropout(0.1)(x)
-    # x = layers.Dense(20, activation="relu")(x)
-    # x = layers.Dropout(0.1)(x)
+# Example usage (optional, for testing)
+if __name__ == '__main__':
+    try:
+        print("--- PyTorch Transformer Model Example ---")
+        # Example: Get the feature extractor
+        extractor = get_feature_extractor()
+        print(f"Loaded feature extractor: {extractor}")
+        print(f"Feature Extractor Sampling Rate: {extractor.sampling_rate}")
+        print(f"Feature Extractor Max Length: {extractor.max_length}") # Max input samples
+        print(f"Feature Extractor Num Mel Bins: {extractor.nb_mel_bins}")
 
-    # Output layer
-    if num_classes == 2:
-        # outputs = layers.Dense(1, activation="sigmoid")(x)
-        loss = 'binary_crossentropy'
-    else:
-        # outputs = layers.Dense(num_classes, activation="softmax")(x)
-        loss = 'sparse_categorical_crossentropy'
-    
-    # Create the model
-    # model = models.Model(inputs=inputs, outputs=outputs)
-    
-    # Compile the model
-    # optimizer = tf.keras.optimizers.Adam()
-    # model.compile(optimizer=optimizer, loss=loss, metrics=["accuracy"])
-    # model.summary() # Uncomment when implemented
-    # --- End Placeholder Implementation ---
-    
-    # Returning None for now
-    return None
+        # Example: Build the model for a specific number of classes
+        num_example_classes = 5
+        pytorch_model = build_transformer_model(num_classes=num_example_classes)
+        print(f"Loaded PyTorch model: {pytorch_model.__class__.__name__}")
 
-# --- Helper Classes (Placeholders - Need full implementation) ---
-# class TransformerBlock(layers.Layer):
-#     def __init__(self, embed_dim, num_heads, ff_dim, rate=0.1):
-#         super().__init__()
-#         # self.att = layers.MultiHeadAttention(num_heads=num_heads, key_dim=embed_dim)
-#         # self.ffn = tf.keras.Sequential([...]) # FeedForward network
-#         # self.layernorm1 = layers.LayerNormalization(epsilon=1e-6)
-#         # self.layernorm2 = layers.LayerNormalization(epsilon=1e-6)
-#         # self.dropout1 = layers.Dropout(rate)
-#         # self.dropout2 = layers.Dropout(rate)
-#         pass
-#     def call(self, inputs, training):
-#         # ... implement the forward pass ...
-#         return None # Placeholder
+        # Print model structure (optional, can be verbose)
+        # print(pytorch_model)
 
-# class PositionalEmbedding(layers.Layer):
-#     def __init__(self, maxlen, embed_dim):
-#         super().__init__()
-#         # self.pos_emb = layers.Embedding(input_dim=maxlen, output_dim=embed_dim)
-#         # self.token_emb = layers.Embedding(input_dim=vocab_size, output_dim=embed_dim) # If needed
-#         pass
-#     def call(self, x):
-#         # ... implement positional encoding ...
-#         return None # Placeholder
-# --- End Helper Classes ---
+        # Example of creating dummy input matching extractor specs
+        # Input shape for AST is typically (batch_size, num_mel_bins, time_frames)
+        # Feature extractor handles the creation of this from raw audio
+        # Let's simulate output from the feature extractor
+        dummy_batch_size = 2
+        dummy_input_features = torch.randn(
+            dummy_batch_size,
+            extractor.nb_mel_bins, # e.g., 128
+            extractor.max_length   # e.g., 1024 (this might represent time frames after processing)
+                                   # Verify this dimension, might just be 1D input depending on model variant
+                                   # AST typically takes 2D input (mel_bins, time_frames)
+        )
+        # Check if the feature extractor expects a different key or format
+        # For AST, input is usually passed as 'input_values'
+        dummy_input_dict = {"input_values": dummy_input_features}
 
-if __name__ == "__main__":
-    dummy_input_shape = (44, 128) # Example: (sequence_length, embedding_dimension)
-    dummy_num_classes = 2
 
-    print(f"Building Transformer model placeholder with input shape: {dummy_input_shape}...")
-    transformer_model_placeholder = build_transformer_model(dummy_input_shape, dummy_num_classes)
+        # Example forward pass
+        pytorch_model.eval() # Set model to evaluation mode
+        with torch.no_grad(): # Disable gradient calculation for inference
+            outputs = pytorch_model(**dummy_input_dict) # Pass input features
+            logits = outputs.logits
 
-    if transformer_model_placeholder is None:
-        print("Transformer model is a placeholder and not fully built.")
-    else:
-        print("Transformer model structure (if implemented):")
-        # transformer_model_placeholder.summary() 
+        print(f"Dummy input shape (batch, bins, time_frames?): {dummy_input_features.shape}")
+        print(f"Output logits shape (batch, num_classes): {logits.shape}")
+        print(f"Output logits sample: {logits[0]}")
+
+    except Exception as e:
+        print(f"Could not run PyTorch example: {e}")
+        print("Ensure the MODEL_CHECKPOINT is correct and dependencies (torch, transformers) are installed.")
+        import traceback
+        traceback.print_exc() # Print detailed traceback 

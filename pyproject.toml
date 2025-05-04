@@ -12,6 +12,7 @@ dependencies = [
     "pandas>=2.2.3",
     "seaborn>=0.13.2",
     "soundfile>=0.13.1",
-    "tensorflow>=2.19.0",
     "python-dotenv",
+    "transformers>=4.51.3",
+    "torch>=2.7.0",
 ]
