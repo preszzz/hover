@@ -1,136 +1,172 @@
-"""Evaluates a trained model on the test dataset."""
+#!/usr/bin/env python
+"""Evaluate the trained audio classification model using PyTorch."""
 
 import logging
 import os
-import tensorflow as tf
+import torch
+from torch.utils.data import DataLoader
 import numpy as np
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score
-import seaborn as sns
 import matplotlib.pyplot as plt
+import seaborn as sns
 
-# Local imports
-from src.feature_engineering.feature_loader import load_data, preprocess_features
+# Import from project modules
+from src.feature_engineering.feature_loader import (
+    load_data_splits,
+    preprocess_features,
+    FEATURE_EXTRACTOR,
+    NUM_CLASSES,
+    LABEL_COLUMN,
+    CLASS_NAMES
+)
+from src.models.transformer_model import build_transformer_model
+# Import collate_fn and device from train script (or redefine if preferred)
+from src.training.train import collate_fn, get_device
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Configuration (Consider moving to a central config file or using argparse) ---
-HUGGINGFACE_DATASET_ID = "hover-d/test"
-MODEL_PATH = "./trained_models/cnn_model_YYYYMMDD-HHMMSS.keras" # IMPORTANT: Replace with the actual path to your trained model
-BATCH_SIZE = 64
-NUM_CLASSES = 2 # Should match training configuration
-CLASS_NAMES = ['No Drone', 'Drone'] # Adjust if you have different class names/order
+# --- Configuration ---
+HUGGINGFACE_DATASET_ID = os.getenv("HUGGINGFACE_DATASET_ID", "hover-d/test")
+MODEL_LOAD_DIR = "trained_models_pytorch"
+MODEL_FILENAME = "ast_best_model.pth" # The saved model state dict
+BATCH_SIZE = 16 # Should match or be compatible with training batch size for efficiency
+RESULTS_SAVE_DIR = "evaluation_results_pytorch"
+CONFUSION_MATRIX_FILENAME = "confusion_matrix.png"
+CLASSIFICATION_REPORT_FILENAME = "classification_report.txt"
 
-def evaluate_model(model_path: str):
-    """Loads a trained model and evaluates it on the test set."""
-    
-    if not os.path.exists(model_path):
-        logging.error(f"Model file not found: {model_path}")
-        return
+# --- Device Setup ---
+DEVICE = get_device() # Use the same device logic as training
 
-    logging.info(f"--- Starting Model Evaluation --- ")
-    logging.info(f"Model Path: {model_path}")
-    logging.info(f"Dataset: {HUGGINGFACE_DATASET_ID}")
+# --- Evaluation Function ---
+def evaluate_model():
+    """Loads test data, loads trained model, runs inference, and calculates metrics."""
+    logging.info("--- Starting PyTorch Model Evaluation ---")
 
     # 1. Load Test Data
-    logging.info("Loading test dataset...")
-    test_ds = load_data('test', dataset_id=HUGGINGFACE_DATASET_ID)
+    logging.info(f"Loading dataset: {HUGGINGFACE_DATASET_ID}")
+    datasets = load_data_splits(dataset_name=HUGGINGFACE_DATASET_ID)
+    if "test" not in datasets:
+        logging.error("Test split not found in the dataset. Exiting.")
+        return
+    test_dataset = datasets["test"]
 
     # 2. Preprocess Test Data
-    logging.info("Applying preprocessing to test data...")
-    # IMPORTANT: Use the *exact same* preprocessing as during training
-    # test_ds_processed = test_ds.map(preprocess_features, batched=True, num_parallel_calls=tf.data.AUTOTUNE)
-    
-    # Placeholder: Use raw datasets for now - REMOVE when preprocess_features is ready
-    logging.warning("Using RAW test dataset - Preprocessing function needs implementation!")
-    test_ds_processed = test_ds 
-    # End Placeholder
+    if FEATURE_EXTRACTOR is None:
+        logging.error("Feature extractor not loaded. Cannot preprocess. Exiting.")
+        return
+    logging.info("Applying feature extractor preprocessing to test set...")
+    processed_test_dataset = test_dataset.map(
+        preprocess_features,
+        batched=True,
+        remove_columns=[col for col in test_dataset.column_names if col not in [LABEL_COLUMN]]
+    )
 
-    # Convert to TensorFlow dataset (using the same logic as in train.py)
-    def format_for_tf(batch):
-        # Placeholder - Needs implementation based on preprocess_features output
-        # features = tf.cast(batch['features'], tf.float32)
-        # labels = tf.cast(batch['label'], tf.int32)
-        # return features, labels
-        pass
-    
-    # tf_test_ds = test_ds_processed.map(format_for_tf).batch(BATCH_SIZE)
-    logging.warning("TensorFlow test dataset conversion needs implementation.")
-    tf_test_ds = None # Replace with actual TF dataset
+    # 3. Create Test DataLoader
+    logging.info("Creating Test DataLoader...")
+    test_dataloader = DataLoader(
+        processed_test_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=False, # Important: Do not shuffle test data
+        collate_fn=collate_fn
+    )
 
-    if tf_test_ds is None:
-        logging.error("Evaluation cannot proceed without a valid TensorFlow test dataset.")
+    # 4. Load Trained Model
+    model_path = os.path.join(MODEL_LOAD_DIR, MODEL_FILENAME)
+    if not os.path.exists(model_path):
+        logging.error(f"Model state dict not found at {model_path}. Train the model first.")
         return
 
-    # 3. Load Trained Model
-    logging.info(f"Loading trained model from: {model_path}")
+    logging.info(f"Loading trained model state dict from: {model_path}")
+    model = build_transformer_model(num_classes=NUM_CLASSES)
     try:
-        model = tf.keras.models.load_model(model_path)
-        logging.info("Model loaded successfully.")
-        model.summary()
+        model.load_state_dict(torch.load(model_path, map_location=DEVICE))
+        logging.info("Model state dict loaded successfully.")
     except Exception as e:
-        logging.error(f"Failed to load model: {e}", exc_info=True)
+        logging.error(f"Failed to load model state dict: {e}", exc_info=True)
         return
 
-    # 4. Evaluate Model
-    logging.info("Evaluating model on the test set...")
-    # results = model.evaluate(tf_test_ds, verbose=1)
-    # loss = results[0]
-    # accuracy = results[1]
-    # logging.info(f"Test Loss: {loss:.4f}")
-    # logging.info(f"Test Accuracy: {accuracy:.4f}")
-    logging.warning("Actual evaluation using model.evaluate() is commented out.")
-    loss, accuracy = 0.0, 0.0 # Placeholder values
+    model.to(DEVICE)
+    model.eval() # Set model to evaluation mode
 
-    # 5. Generate Predictions and Detailed Report
-    logging.info("Generating predictions for detailed report...")
-    # y_pred_probs = model.predict(tf_test_ds)
-    
-    # # Extract true labels (requires iterating through the tf.data.Dataset)
-    # y_true = []
-    # for _, labels in tf_test_ds.unbatch(): # Unbatch to get individual labels
-    #     y_true.append(labels.numpy())
-    # y_true = np.array(y_true)
-    
-    # Convert probabilities to class predictions
-    if NUM_CLASSES == 2:
-        # y_pred = (y_pred_probs > 0.5).astype(int).flatten() # For binary sigmoid output
-        pass # Placeholder
-    else:
-        # y_pred = np.argmax(y_pred_probs, axis=1) # For multi-class softmax output
-        pass # Placeholder
+    # 5. Run Inference
+    logging.info("Running inference on the test set...")
+    all_preds = []
+    all_labels = []
 
-    logging.warning("Prediction generation and true label extraction need implementation.")
-    y_true = None # Replace with actual labels
-    y_pred = None # Replace with actual predictions
+    with torch.no_grad():
+        for batch in test_dataloader:
+            input_values = batch["input_values"] # Already on DEVICE via collate_fn
+            labels = batch["labels"]         # Already on DEVICE via collate_fn
 
-    if y_true is not None and y_pred is not None:
-        logging.info("\n--- Classification Report --- ")
-        report = classification_report(y_true, y_pred, target_names=CLASS_NAMES)
-        print(report)
+            outputs = model(input_values=input_values)
+            logits = outputs.logits
 
-        logging.info("\n--- Confusion Matrix --- ")
-        cm = confusion_matrix(y_true, y_pred)
-        print(cm)
-        
-        # Plot confusion matrix
+            predictions = torch.argmax(logits, dim=-1)
+
+            all_preds.extend(predictions.cpu().numpy()) # Move predictions to CPU for numpy/sklearn
+            all_labels.extend(labels.cpu().numpy())    # Move labels to CPU
+
+    logging.info("Inference complete.")
+
+    # Ensure we have predictions and labels
+    if not all_labels or not all_preds:
+        logging.error("No labels or predictions collected. Cannot evaluate.")
+        return
+
+    # 6. Calculate and Report Metrics
+    logging.info("--- Evaluation Results ---")
+    accuracy = accuracy_score(all_labels, all_preds)
+    logging.info(f"Overall Accuracy: {accuracy * 100:.2f}%")
+
+    # Classification Report
+    report = classification_report(
+        all_labels,
+        all_preds,
+        target_names=CLASS_NAMES, # Use class names from feature_loader
+        digits=4
+    )
+    logging.info("\nClassification Report:\n")
+    print(report) # Print to console for immediate visibility
+
+    # Confusion Matrix
+    cm = confusion_matrix(all_labels, all_preds)
+    logging.info("\nConfusion Matrix:\n")
+    print(cm)
+
+    # 7. Save Results
+    os.makedirs(RESULTS_SAVE_DIR, exist_ok=True)
+
+    # Save classification report to file
+    report_path = os.path.join(RESULTS_SAVE_DIR, CLASSIFICATION_REPORT_FILENAME)
+    try:
+        with open(report_path, "w") as f:
+            f.write(f"Evaluation Results for model: {model_path}\n")
+            f.write(f"Overall Accuracy: {accuracy * 100:.2f}%\n\n")
+            f.write("Classification Report:\n")
+            f.write(report)
+            f.write("\n\nConfusion Matrix:\n")
+            f.write(np.array2string(cm))
+        logging.info(f"Classification report saved to {report_path}")
+    except Exception as e:
+        logging.error(f"Failed to save classification report: {e}")
+
+    # Plot and save confusion matrix
+    try:
         plt.figure(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
-                    xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES)
-        plt.xlabel('Predicted Label')
-        plt.ylabel('True Label')
-        plt.title('Confusion Matrix')
-        # You might want to save the plot instead of showing it directly
-        # plt.savefig(f"./confusion_matrix_{os.path.basename(model_path)}.png")
-        plt.show() 
-    else:
-        logging.warning("Cannot generate classification report or confusion matrix without predictions and true labels.")
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES)
+        plt.xlabel("Predicted Label")
+        plt.ylabel("True Label")
+        plt.title("Confusion Matrix")
+        cm_path = os.path.join(RESULTS_SAVE_DIR, CONFUSION_MATRIX_FILENAME)
+        plt.savefig(cm_path)
+        plt.close() # Close the plot to free memory
+        logging.info(f"Confusion matrix plot saved to {cm_path}")
+    except Exception as e:
+        logging.error(f"Failed to plot or save confusion matrix: {e}", exc_info=True)
 
-    logging.info("--- Model Evaluation Complete --- ")
+    logging.info("--- Evaluation Finished ---")
 
+# --- Main Execution ---
 if __name__ == "__main__":
-    # IMPORTANT: Update MODEL_PATH before running!
-    if "YYYYMMDD-HHMMSS" in MODEL_PATH:
-        logging.error("Please update the MODEL_PATH variable in the script before running evaluation.")
-    else:
-        evaluate_model(model_path=MODEL_PATH) 
+    evaluate_model() 

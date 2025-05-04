@@ -1,150 +1,210 @@
-"""Main script for training the audio classification model."""
+#!/usr/bin/env python
+"""Main training script for the audio classification model using PyTorch."""
 
 import logging
 import os
-import tensorflow as tf
 from datetime import datetime
+import torch
+import torch.nn as nn
+import torch.optim as optim
+from torch.utils.data import DataLoader
 
-# Local imports (adjust paths as necessary)
-from src.feature_engineering.feature_loader import get_feature_loaders, preprocess_features
-from src.models.cnn_model import build_cnn_model
-# from src.models.lstm_model import build_lstm_model # Uncomment when ready
-# from src.models.transformer_model import build_transformer_model # Uncomment when ready
+# Import from project modules
+from src.feature_engineering.feature_loader import (
+    load_data_splits,
+    preprocess_features,
+    FEATURE_EXTRACTOR,
+    NUM_CLASSES,
+    LABEL_COLUMN,
+    CLASS_NAMES # Import class names if needed for logging/evaluation
+)
+from src.models.transformer_model import build_transformer_model
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Configuration (Consider moving to a central config file or using argparse) ---
-MODEL_TYPE = 'cnn' # Options: 'cnn', 'lstm', 'transformer'
-NUM_CLASSES = 2 # Binary classification (drone vs no-drone)
-HUGGINGFACE_DATASET_ID = "hover-d/test"
+# --- Configuration ---
+HUGGINGFACE_DATASET_ID = os.getenv("HUGGINGFACE_DATASET_ID", "hover-d/test") # Use loaded HF dataset name
+MODEL_SAVE_DIR = "trained_models_pytorch"
+BATCH_SIZE = 16 # Adjust as needed based on GPU memory
+EPOCHS = 10 # Adjust number of training epochs
+LEARNING_RATE = 5e-5 # Common learning rate for fine-tuning transformers
+CHECKPOINT_FILENAME = "ast_best_model.pth"
 
-# Training Hyperparameters
-EPOCHS = 10
-BATCH_SIZE = 64
-LEARNING_RATE = 0.001
+# --- Device Setup ---
+def get_device():
+    if torch.cuda.is_available():
+        logging.info("CUDA available. Using GPU.")
+        return torch.device("cuda")
+    # Add check for MPS (MacOS Metal Performance Shaders) if relevant
+    # elif torch.backends.mps.is_available():
+    #     logging.info("MPS available. Using GPU.")
+    #     return torch.device("mps")
+    else:
+        logging.info("CUDA/MPS not available. Using CPU.")
+        return torch.device("cpu")
 
-# Input Shape (IMPORTANT: Must match the output of preprocess_features)
-# Example for CNN with stacked MFCC, delta, delta2:
-INPUT_SHAPE = (44, 40, 3) # (time_frames, mfcc_coeffs, channels)
-# Example for LSTM/Transformer (if features are flattened per time step):
-# INPUT_SHAPE = (44, 120) # (time_steps, num_features)
+DEVICE = get_device()
 
-# Model Saving
-MODEL_SAVE_DIR = "./trained_models"
+# --- Data Collator ---
+def collate_fn(batch):
+    """Prepares batches for the PyTorch DataLoader.
+    Converts NumPy arrays from the dataset mapping step to PyTorch tensors.
+    Moves tensors to the specified device.
+    """
+    # Extract features and labels from the batch
+    # The feature extractor output key is expected to be 'input_features'
+    # after the preprocess_features mapping.
+    input_features = [item['input_features'] for item in batch]
+    labels = [item[LABEL_COLUMN] for item in batch]
 
+    # Convert to PyTorch tensors
+    # AST expects input_values with shape (batch_size, num_mel_bins, time_frames)
+    input_tensor = torch.tensor(input_features, dtype=torch.float32).to(DEVICE)
+    label_tensor = torch.tensor(labels, dtype=torch.long).to(DEVICE)
+
+    return {
+        "input_values": input_tensor, # AST models expect 'input_values' key
+        "labels": label_tensor
+    }
+
+# --- Training Function ---
 def train_model():
-    """Loads data, builds model, trains, and saves it."""
-    
-    logging.info("--- Starting Model Training --- ")
-    logging.info(f"Model Type: {MODEL_TYPE}")
-    logging.info(f"Dataset: {HUGGINGFACE_DATASET_ID}")
-    logging.info(f"Epochs: {EPOCHS}, Batch Size: {BATCH_SIZE}")
+    """Loads data, builds model, and runs the training loop."""
+    logging.info("--- Starting PyTorch Training Process ---")
 
     # 1. Load Data
-    logging.info("Loading datasets...")
-    train_ds, valid_ds, _ = get_feature_loaders(dataset_id=HUGGINGFACE_DATASET_ID)
-    
-    # 2. Preprocess Data (Apply the preprocessing function)
-    #    This step needs to be fully implemented in feature_loader.py
-    logging.info("Applying preprocessing...")
-    # IMPORTANT: Ensure preprocess_features reshapes/selects data matching INPUT_SHAPE
-    # train_ds_processed = train_ds.map(preprocess_features, batched=True, num_parallel_calls=tf.data.AUTOTUNE)
-    # valid_ds_processed = valid_ds.map(preprocess_features, batched=True, num_parallel_calls=tf.data.AUTOTUNE)
-    
-    # Placeholder: Use raw datasets for now - REMOVE when preprocess_features is ready
-    logging.warning("Using RAW datasets - Preprocessing function needs implementation!")
-    train_ds_processed = train_ds 
-    valid_ds_processed = valid_ds
-    # End Placeholder
+    logging.info(f"Loading dataset: {HUGGINGFACE_DATASET_ID}")
+    datasets = load_data_splits(dataset_name=HUGGINGFACE_DATASET_ID)
 
-    # Convert to TensorFlow datasets (example - adapt as needed)
-    # This conversion depends heavily on how preprocess_features returns data
-    # You might need to adjust feature keys ('features', 'label')
-    def format_for_tf(batch):
-        # Placeholder: assumes preprocess_features returns suitable format
-        # Modify this based on actual output of preprocess_features
-        # features = tf.cast(batch['features'], tf.float32)
-        # labels = tf.cast(batch['label'], tf.int32)
-        # return features, labels
-        pass # Replace with actual TF formatting
-
-    # tf_train_ds = train_ds_processed.map(format_for_tf).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
-    # tf_valid_ds = valid_ds_processed.map(format_for_tf).batch(BATCH_SIZE).prefetch(tf.data.AUTOTUNE)
-    logging.warning("TensorFlow dataset conversion needs implementation based on preprocessing output.")
-    tf_train_ds = None # Replace with actual TF dataset
-    tf_valid_ds = None # Replace with actual TF dataset
-
-    # 3. Build Model
-    logging.info(f"Building {MODEL_TYPE} model...")
-    model = None
-    if MODEL_TYPE == 'cnn':
-        model = build_cnn_model(input_shape=INPUT_SHAPE, num_classes=NUM_CLASSES)
-    elif MODEL_TYPE == 'lstm':
-        # model = build_lstm_model(input_shape=INPUT_SHAPE, num_classes=NUM_CLASSES)
-        logging.error("LSTM model training not implemented yet.")
-        return
-    elif MODEL_TYPE == 'transformer':
-        # model = build_transformer_model(input_shape=INPUT_SHAPE, num_classes=NUM_CLASSES)
-        logging.error("Transformer model training not implemented yet.")
-        return
-    else:
-        logging.error(f"Unknown model type: {MODEL_TYPE}")
+    # 2. Preprocess Data using Hugging Face `map`
+    if FEATURE_EXTRACTOR is None:
+        logging.error("Feature extractor not loaded. Exiting.")
         return
 
-    if model is None:
-        logging.error("Model building failed.")
-        return
-        
-    # Adjust learning rate if needed (overrides default in model build)
-    # tf.keras.backend.set_value(model.optimizer.learning_rate, LEARNING_RATE)
+    logging.info("Applying feature extractor preprocessing...")
+    processed_datasets = datasets.map(
+        preprocess_features,
+        batched=True,
+        remove_columns=[col for col in datasets['train'].column_names if col not in [LABEL_COLUMN]] # Keep only label and processed features
+        # Consider adding num_proc=os.cpu_count() for parallel processing if needed
+    )
+    # After mapping, the features should be under the key 'input_features'
+    # The collate_fn expects this key.
 
-    # 4. Train Model
-    if tf_train_ds is None or tf_valid_ds is None:
-        logging.error("Training cannot proceed without valid TensorFlow datasets. Implement preprocessing and TF conversion.")
-        return
-        
-    logging.info("Starting training...")
-    # Add callbacks (e.g., ModelCheckpoint, EarlyStopping, TensorBoard)
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
-    model_filename = f"{MODEL_TYPE}_model_{timestamp}.keras" # Use .keras format
-    model_save_path = os.path.join(MODEL_SAVE_DIR, model_filename)
-    os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
-    
-    callbacks = [
-        tf.keras.callbacks.ModelCheckpoint(
-            filepath=model_save_path,
-            save_best_only=True, # Save only the best model based on validation performance
-            monitor='val_loss', # Metric to monitor (e.g., val_accuracy)
-            verbose=1
-        ),
-        tf.keras.callbacks.EarlyStopping(
-            monitor='val_loss', 
-            patience=5, # Number of epochs with no improvement after which training will be stopped
-            verbose=1,
-            restore_best_weights=True # Restore model weights from the epoch with the best value
-        ),
-        # tf.keras.callbacks.TensorBoard(log_dir=f"./logs/{MODEL_TYPE}_{timestamp}") # Optional: For TensorBoard visualization
-    ]
-    
-    history = model.fit(
-        tf_train_ds,
-        epochs=EPOCHS,
-        validation_data=tf_valid_ds,
-        callbacks=callbacks
+    # 3. Create DataLoaders
+    logging.info("Creating DataLoaders...")
+    train_dataloader = DataLoader(
+        processed_datasets["train"],
+        batch_size=BATCH_SIZE,
+        shuffle=True,
+        collate_fn=collate_fn
+    )
+    val_dataloader = DataLoader(
+        processed_datasets["validation"],
+        batch_size=BATCH_SIZE,
+        shuffle=False, # No need to shuffle validation data
+        collate_fn=collate_fn
     )
 
-    logging.info("Training finished.")
-    logging.info(f"Best model saved to: {model_save_path}")
+    # 4. Build Model
+    logging.info(f"Building AST model for {NUM_CLASSES} classes.")
+    model = build_transformer_model(num_classes=NUM_CLASSES)
+    model.to(DEVICE) # Move model to GPU/CPU
 
-    # Optional: Plot training history (Accuracy, Loss)
-    # import matplotlib.pyplot as plt
-    # plt.plot(history.history['accuracy'])
-    # plt.plot(history.history['val_accuracy'])
-    # ... add plots for loss ...
-    # plt.show()
+    # 5. Define Optimizer and Loss Function
+    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+    criterion = nn.CrossEntropyLoss() # Standard loss for multi-class classification
 
-    logging.info("--- Model Training Complete --- ")
+    # 6. Training Loop
+    best_val_accuracy = 0.0
+    os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
+    model_save_path = os.path.join(MODEL_SAVE_DIR, CHECKPOINT_FILENAME)
 
+    logging.info("--- Starting Training Loop ---")
+    for epoch in range(EPOCHS):
+        logging.info(f"Epoch {epoch+1}/{EPOCHS}")
+
+        # --- Training Phase ---
+        model.train() # Set model to training mode
+        total_train_loss = 0.0
+        train_correct = 0
+        train_total = 0
+
+        for i, batch in enumerate(train_dataloader):
+            # Data is already on DEVICE via collate_fn
+            input_values = batch["input_values"]
+            labels = batch["labels"]
+
+            # Zero gradients
+            optimizer.zero_grad()
+
+            # Forward pass
+            outputs = model(input_values=input_values)
+            logits = outputs.logits
+
+            # Calculate loss
+            loss = criterion(logits, labels)
+
+            # Backward pass and optimization
+            loss.backward()
+            optimizer.step()
+
+            # Track loss and accuracy
+            total_train_loss += loss.item()
+            _, predicted = torch.max(logits.data, 1)
+            train_total += labels.size(0)
+            train_correct += (predicted == labels).sum().item()
+
+            if (i + 1) % 50 == 0: # Log progress every 50 batches
+                logging.info(f"  Batch {i+1}/{len(train_dataloader)}, Train Loss: {loss.item():.4f}")
+
+        avg_train_loss = total_train_loss / len(train_dataloader)
+        train_accuracy = 100 * train_correct / train_total
+        logging.info(f"  End of Epoch {epoch+1} - Avg Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.2f}%")
+
+        # --- Validation Phase ---
+        model.eval() # Set model to evaluation mode
+        total_val_loss = 0.0
+        val_correct = 0
+        val_total = 0
+
+        with torch.no_grad(): # Disable gradient calculations
+            for batch in val_dataloader:
+                input_values = batch["input_values"]
+                labels = batch["labels"]
+
+                # Forward pass
+                outputs = model(input_values=input_values)
+                logits = outputs.logits
+
+                # Calculate loss
+                loss = criterion(logits, labels)
+                total_val_loss += loss.item()
+
+                # Calculate accuracy
+                _, predicted = torch.max(logits.data, 1)
+                val_total += labels.size(0)
+                val_correct += (predicted == labels).sum().item()
+
+        avg_val_loss = total_val_loss / len(val_dataloader)
+        val_accuracy = 100 * val_correct / val_total
+        logging.info(f"  End of Epoch {epoch+1} - Avg Validation Loss: {avg_val_loss:.4f}, Validation Accuracy: {val_accuracy:.2f}%")
+
+        # --- Checkpoint Saving ---
+        if val_accuracy > best_val_accuracy:
+            logging.info(f"  Validation accuracy improved ({best_val_accuracy:.2f}% -> {val_accuracy:.2f}%). Saving model...")
+            best_val_accuracy = val_accuracy
+            # Save only the model state_dict
+            torch.save(model.state_dict(), model_save_path)
+            logging.info(f"  Model saved to {model_save_path}")
+        else:
+            logging.info(f"  Validation accuracy did not improve from {best_val_accuracy:.2f}%")
+
+    logging.info("--- Training Finished ---")
+    logging.info(f"Best validation accuracy achieved: {best_val_accuracy:.2f}%" )
+    logging.info(f"Best model state dict saved to {model_save_path}")
+
+# --- Main Execution ---
 if __name__ == "__main__":
     train_model() 
