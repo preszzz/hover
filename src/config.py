@@ -1,11 +1,11 @@
-"""Configuration settings for the audio preprocessing pipeline."""
+"""Configuration settings for the pipeline."""
 
 import os
 
 # --- Paths ---
 # Assumes the script is run from the project root or uses relative paths correctly
 # You might need to adjust these based on your execution context
-ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')) # Project root
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..')) # Project root
 DATA_DIR = os.path.join(ROOT_DIR, 'data')
 RAW_DATA_DIR = os.path.join(DATA_DIR, 'raw')
 INTERIM_DATA_DIR = os.path.join(DATA_DIR, 'interim')
@@ -27,5 +27,6 @@ NORMALIZATION_DB = -20.0  # dB level for normalization reference
 SIGNAL_FILENAME = 'signal.npy'   # Raw signal data as numpy array
 MFCC_FILENAME = 'mfcc.npy'       # MFCC features as numpy array
 LABEL_FILENAME = 'label.txt'     # Label as text file
+
 # --- Misc ---
 NUM_WORKERS = os.cpu_count()  # For potential parallel processing (optional) 
