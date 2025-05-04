@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Import from project modules
-from src.feature_engineering.feature_loader import (
+from feature_engineering.feature_loader import (
     load_data_splits,
     preprocess_features,
     FEATURE_EXTRACTOR,
@@ -19,9 +19,9 @@ from src.feature_engineering.feature_loader import (
     LABEL_COLUMN,
     CLASS_NAMES
 )
-from src.models.transformer_model import build_transformer_model
+from models.transformer_model import build_transformer_model
 # Import collate_fn and device from train script (or redefine if preferred)
-from src.training.train import collate_fn, get_device
+from train import collate_fn, get_device
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

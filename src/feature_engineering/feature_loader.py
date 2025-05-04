@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 # import tensorflow as tf # Removed unused import
 
 # Import the feature extractor loading function from our models module
-from src.models.transformer_model import get_feature_extractor
+from models.transformer_model import get_feature_extractor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -66,20 +66,20 @@ def load_data_splits(dataset_name: str = HF_DATASET_NAME) -> DatasetDict:
 
         # Ensure standard split names if they exist
         if not isinstance(dataset, DatasetDict):
-             logging.warning(f"Loaded dataset is not a DatasetDict. Attempting to split.")
-             # Handle cases where dataset might be loaded as a single split
-             # This logic might need adjustment based on actual dataset structure
-             if len(dataset) > 10000: # Example threshold
-                 train_testvalid = dataset.train_test_split(test_size=0.2)
-                 test_valid = train_testvalid['test'].train_test_split(test_size=0.5)
-                 dataset = DatasetDict({
-                     'train': train_testvalid['train'],
-                     'validation': test_valid['train'],
-                     'test': test_valid['test']
-                 })
-             else:
-                 logging.error("Dataset is too small or not structured for automatic splitting.")
-                 raise ValueError("Could not automatically determine train/validation/test splits.")
+            logging.warning(f"Loaded dataset is not a DatasetDict. Attempting to split.")
+            # Handle cases where dataset might be loaded as a single split
+            # This logic might need adjustment based on actual dataset structure
+            if len(dataset) > 10000: # Example threshold
+                train_testvalid = dataset.train_test_split(test_size=0.2)
+                test_valid = train_testvalid['test'].train_test_split(test_size=0.5)
+                dataset = DatasetDict({
+                    'train': train_testvalid['train'],
+                    'validation': test_valid['train'],
+                    'test': test_valid['test']
+                })
+            else:
+                logging.error("Dataset is too small or not structured for automatic splitting.")
+                raise ValueError("Could not automatically determine train/validation/test splits.")
 
         # Basic validation
         if not all(split in dataset for split in ['train', 'validation', 'test']):
@@ -89,7 +89,7 @@ def load_data_splits(dataset_name: str = HF_DATASET_NAME) -> DatasetDict:
                 dataset['validation'] = dataset.pop('valid')
                 logging.info("Renamed 'valid' split to 'validation'.")
             else:
-                 raise ValueError("Dataset does not contain the required 'train', 'validation', and 'test' splits.")
+                raise ValueError("Dataset does not contain the required 'train', 'validation', and 'test' splits.")
 
         logging.info(f"Dataset loaded successfully with splits: {list(dataset.keys())}")
         logging.info(f"Train split size: {len(dataset['train'])}")
@@ -118,7 +118,7 @@ def preprocess_features(batch):
 
     Args:
         batch: A dictionary representing a batch of examples from the HF dataset.
-               Expected to contain an 'audio' key with audio data.
+        Expected to contain an 'audio' key with audio data.
 
     Returns:
         A dictionary containing the processed 'input_features'.
@@ -155,7 +155,7 @@ def preprocess_features(batch):
     if "input_values" in inputs:
         batch["input_features"] = inputs["input_values"]
     elif "input_features" in inputs:
-         batch["input_features"] = inputs["input_features"] # Already named correctly
+        batch["input_features"] = inputs["input_features"] # Already named correctly
     else:
         logging.error(f"Feature extractor output did not contain expected keys ('input_values' or 'input_features'). Found: {inputs.keys()}")
         # Handle error appropriately, maybe return None or raise exception
@@ -188,7 +188,7 @@ if __name__ == "__main__":
 
             # Verify audio column casting worked
             if TARGET_SR and example[AUDIO_COLUMN]['sampling_rate'] != TARGET_SR:
-                 logging.warning("Mismatch between target SR and example SR after loading!")
+                logging.warning("Mismatch between target SR and example SR after loading!")
 
         # 2. Apply preprocessing
         if FEATURE_EXTRACTOR:
