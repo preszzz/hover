@@ -9,8 +9,10 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 
 # Import from project modules
+import config
+from utils import load_dataset_splits
+
 from feature_engineering.feature_loader import (
-    load_data_splits,
     preprocess_features,
     FEATURE_EXTRACTOR,
     NUM_CLASSES,
@@ -20,14 +22,6 @@ from models.transformer_model import build_transformer_model
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-# --- Configuration ---
-HUGGINGFACE_DATASET_ID = os.getenv("HUGGINGFACE_DATASET_ID", "hover-d/test") # Use loaded HF dataset name
-MODEL_SAVE_DIR = "trained_models_pytorch"
-BATCH_SIZE = 16 # Adjust as needed based on GPU memory
-EPOCHS = 10 # Adjust number of training epochs
-LEARNING_RATE = 5e-5 # Common learning rate for fine-tuning transformers
-CHECKPOINT_FILENAME = "ast_best_model.pth"
 
 # --- Device Setup ---
 def get_device():
@@ -73,7 +67,7 @@ def train_model():
 
     # 1. Load Data
     logging.info(f"Loading dataset: {HUGGINGFACE_DATASET_ID}")
-    datasets = load_data_splits(dataset_name=HUGGINGFACE_DATASET_ID)
+    datasets = load_dataset_splits(dataset_name=HUGGINGFACE_DATASET_ID)
 
     # 2. Preprocess Data using Hugging Face `map`
     if FEATURE_EXTRACTOR is None:
@@ -94,13 +88,13 @@ def train_model():
     logging.info("Creating DataLoaders...")
     train_dataloader = DataLoader(
         processed_datasets["train"],
-        batch_size=BATCH_SIZE,
+        batch_size=config.BATCH_SIZE,
         shuffle=True,
         collate_fn=collate_fn
     )
     val_dataloader = DataLoader(
         processed_datasets["validation"],
-        batch_size=BATCH_SIZE,
+        batch_size=config.BATCH_SIZE,
         shuffle=False, # No need to shuffle validation data
         collate_fn=collate_fn
     )
@@ -111,17 +105,17 @@ def train_model():
     model.to(DEVICE) # Move model to GPU/CPU
 
     # 5. Define Optimizer and Loss Function
-    optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+    optimizer = optim.AdamW(model.parameters(), lr=config.LR)
     criterion = nn.CrossEntropyLoss() # Standard loss for multi-class classification
 
     # 6. Training Loop
     best_val_accuracy = 0.0
-    os.makedirs(MODEL_SAVE_DIR, exist_ok=True)
-    model_save_path = os.path.join(MODEL_SAVE_DIR, CHECKPOINT_FILENAME)
+    os.makedirs(config.MODEL_SAVE_DIR, exist_ok=True)
+    model_save_path = os.path.join(config.MODEL_SAVE_DIR, config.CHECKPOINT_FILENAME)
 
     logging.info("--- Starting Training Loop ---")
-    for epoch in range(EPOCHS):
-        logging.info(f"Epoch {epoch+1}/{EPOCHS}")
+    for epoch in range(config.EPOCHS):
+        logging.info(f"epoch {epoch+1}/{config.EPOCHS}")
 
         # --- Training Phase ---
         model.train() # Set model to training mode
@@ -191,13 +185,13 @@ def train_model():
 
         # --- Checkpoint Saving ---
         if val_accuracy > best_val_accuracy:
-            logging.info(f"  Validation accuracy improved ({best_val_accuracy:.2f}% -> {val_accuracy:.2f}%). Saving model...")
+            logging.info(f"Validation accuracy improved ({best_val_accuracy:.2f}% -> {val_accuracy:.2f}%). Saving model...")
             best_val_accuracy = val_accuracy
             # Save only the model state_dict
             torch.save(model.state_dict(), model_save_path)
-            logging.info(f"  Model saved to {model_save_path}")
+            logging.info(f"Model saved to {model_save_path}")
         else:
-            logging.info(f"  Validation accuracy did not improve from {best_val_accuracy:.2f}%")
+            logging.info(f"Validation accuracy did not improve from {best_val_accuracy:.2f}%")
 
     logging.info("--- Training Finished ---")
     logging.info(f"Best validation accuracy achieved: {best_val_accuracy:.2f}%" )

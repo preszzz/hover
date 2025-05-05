@@ -1,8 +1,8 @@
 """Placeholder for Transformer model definition."""
 
 from transformers import AutoFeatureExtractor, AutoModelForAudioClassification
-import torch # Import PyTorch
-import torch.nn as nn # Import PyTorch neural network module
+import torch 
+import torch.nn as nn 
 
 # Define the pre-trained model checkpoint
 MODEL_CHECKPOINT = "MIT/ast-finetuned-audioset-10-10-0.4593" # Example AST model

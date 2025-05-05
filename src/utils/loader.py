@@ -1,9 +1,42 @@
-"""Label management utilities for the preprocessing pipeline."""
+"""Path management utilities for the preprocessing pipeline."""
 
 import logging
+from pathlib import Path
+import shutil
 import yaml
 import fnmatch
-from pathlib import Path
+from datasets import load_dataset, Dataset
+
+def load_dataset_splits(dataset_name: str) -> Dataset:
+    """Load a dataset from the Hugging Face Hub.
+    
+    Args:
+        dataset_name: Name of the dataset to load
+        
+    Returns:
+        Hugging Face Dataset object
+    """
+    try:
+        dataset = load_dataset(dataset_name)
+        return dataset
+    except Exception as e:
+        logging.error(f"Failed to load dataset {dataset_name}: {e}")
+        return None
+
+def clean_directory(path: Path) -> bool:
+    """Remove a directory and all its contents recursively.
+    
+    Args:
+        path: Directory path to remove
+        
+    Returns:
+        True if removal was successful, False on error
+    """
+    try:
+        if path.exists():
+            shutil.rmtree(path)
+    except Exception as e:
+        logging.error(f"Failed to clean directory {path}: {e}")
 
 def load_label_mapping(mapping_path: Path) -> dict | None:
     """Load label mapping rules from YAML file.
@@ -101,3 +134,5 @@ def get_label(relative_path: Path, mapping_rules: dict) -> str:
 
     logging.debug(f"No specific rule matched for '{relative_path_str}' in {dataset_name}. Using default: {default_label}")
     return default_label
+
+
