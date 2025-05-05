@@ -8,14 +8,14 @@ from pathlib import Path
 
 # Import config and utilities
 import config
-from utils import audio_utils, path_utils, label_utils
+from utils import audio_utils, loader
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Calculate expected dimensions once
-EXPECTED_SAMPLES = config.CHUNK_LENGTH_SAMPLES
-EXPECTED_FRAMES = int(np.ceil(float(EXPECTED_SAMPLES) / config.HOP_LENGTH))
+EXPECTED_LENGTH = config.CHUNK_LENGTH_SAMPLES
+EXPECTED_FRAMES = int(np.ceil(float(EXPECTED_LENGTH) / config.HOP_LENGTH))
 
 def process_chunk(chunk_data: np.ndarray, output_dir: Path, sr: int, label: str) -> bool:
     """Process a single audio chunk: validate, normalize, extract and save features.
@@ -31,7 +31,7 @@ def process_chunk(chunk_data: np.ndarray, output_dir: Path, sr: int, label: str)
     """
     try:
         # Validation (Length)
-        if not audio_utils.validate_chunk(chunk_data, EXPECTED_SAMPLES):
+        if not audio_utils.validate_chunk(chunk_data, EXPECTED_LENGTH):
             return False
 
         # Normalize audio
@@ -70,7 +70,7 @@ def process_chunk(chunk_data: np.ndarray, output_dir: Path, sr: int, label: str)
     except Exception as e:
         logging.error(f"Error processing chunk: {e}")
         if output_dir.exists():
-            path_utils.clean_directory(output_dir)
+            loader.clean_directory(output_dir)
         return False
 
 def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapping_rules: dict) -> tuple[int, int]:
@@ -100,10 +100,11 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
         dataset_name = relative_path.parts[0]
 
         # Get label from path
-        label = label_utils.get_label(relative_path, mapping_rules)
+        label = loader.get_label(relative_path, mapping_rules)
         if not label:
             logging.error(f"Could not determine label for {input_path}")
             return 0, 1
+        label_dirname = label.replace(' ', '_').replace('/', '-')
 
         # Verify sample rate
         info = sf.info(input_path)
@@ -119,18 +120,18 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
             audio_data = librosa.to_mono(audio_data.T)
 
         # Handle short file
-        if info.frames <= EXPECTED_SAMPLES:
-            if info.frames <= EXPECTED_SAMPLES // 2:
+        if info.frames <= EXPECTED_LENGTH:
+            if info.frames <= EXPECTED_LENGTH // 2:
                 logging.info(f"File too short: {input_path}")
                 return 0, 1
 
             # Pad if necessary
-            padded_data = np.zeros(EXPECTED_SAMPLES, dtype=np.float32)
+            padded_data = np.zeros(EXPECTED_LENGTH, dtype=np.float32)
             padded_data[:len(audio_data)] = audio_data
             audio_data = padded_data
 
             chunk_name = input_path.stem
-            chunk_dir = path_utils.get_final_chunk_path(output_path, dataset_name, label, chunk_name)
+            chunk_dir = output_path / dataset_name / label_dirname / chunk_name
             chunk_dir.mkdir(parents=True, exist_ok=True)
 
             # Process the chunk
@@ -139,18 +140,18 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
             else:
                 errors += 1
                 if chunk_dir.exists():
-                    path_utils.clean_directory(chunk_dir)
+                    loader.clean_directory(chunk_dir)
             return chunks_processed, errors
 
         # Process full-length file in chunks
-        num_full_chunks = info.frames // EXPECTED_SAMPLES
+        num_full_chunks = info.frames // EXPECTED_LENGTH
         for i in range(num_full_chunks):
-            start = i * EXPECTED_SAMPLES
-            end = (i + 1) * EXPECTED_SAMPLES
+            start = i * EXPECTED_LENGTH
+            end = (i + 1) * EXPECTED_LENGTH
             chunk_data = audio_data[start:end]
 
             chunk_name = f"{input_path.stem}_chunk_{i + 1}"
-            chunk_dir = path_utils.get_final_chunk_path(output_path, dataset_name, label, chunk_name)
+            chunk_dir = output_path / dataset_name / label_dirname / chunk_name
             chunk_dir.mkdir(parents=True, exist_ok=True)
 
             if process_chunk(chunk_data, chunk_dir, target_sr, label):
@@ -158,7 +159,7 @@ def process_audio_file(input_path: Path, output_path: Path, target_sr: int, mapp
             else:
                 errors += 1
                 if chunk_dir.exists():
-                    path_utils.clean_directory(chunk_dir)
+                    loader.clean_directory(chunk_dir)
 
     except Exception as e:
         logging.error(f"Error processing file {input_path}: {e}")
@@ -176,7 +177,7 @@ def process_directory(source_dir: str, target_dir: str, target_sr: int):
     """
     script_dir = Path(__file__).parent
     mapping_file = script_dir / 'label_mapping.yaml'
-    mapping_rules = label_utils.load_label_mapping(mapping_file)
+    mapping_rules = loader.load_label_mapping(mapping_file)
     if mapping_rules is None:
         logging.critical("Failed to load label mapping. Aborting label creation.")
         return

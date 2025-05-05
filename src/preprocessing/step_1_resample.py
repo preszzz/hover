@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Import config and utilities
 import config
-from utils import path_utils, audio_utils
+from utils import loader, audio_utils
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -55,7 +55,7 @@ def convert_and_resample(input_path: Path, output_path: Path, target_sr: int) ->
     except Exception as e:
         logging.error(f"Error processing file {input_path}: {e}")
         # Clean up incomplete output
-        path_utils.clean_directory(output_path.parent)
+        loader.clean_directory(output_path.parent)
         return False
 
 def process_directory(source_dir: str, target_dir: str, target_sr: int):
