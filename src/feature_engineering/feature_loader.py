@@ -1,19 +1,15 @@
 """Loads and prepares features from the preprocessed HuggingFace dataset."""
 
 import logging
-import os
-from datasets import load_dataset, DatasetDict, Audio
-import config
 # import tensorflow as tf # Removed unused import
 
 # Import the feature extractor loading function from our models module
+import config
 from models.transformer_model import get_feature_extractor
+from utils import load_dataset_splits
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-LABEL_COLUMN = "label" # Column name for labels in the HF dataset
-AUDIO_COLUMN = "audio" # Column name for audio data in the HF dataset
 
 # --- Feature Extractor Initialization ---
 # Load the feature extractor once when the module is loaded
@@ -32,62 +28,6 @@ except Exception as e:
     TARGET_SR = 22050 # Fallback SR if extractor fails, adjust if needed
 # --- End Feature Extractor Initialization ---
 
-# def load_data_splits(dataset_name: str = config.DATASET_NAME) -> DatasetDict:
-#     """Loads the train, validation, and test splits from a Hugging Face dataset.
-
-#     Args:
-#         dataset_name: The name of the Hugging Face dataset (e.g., 'username/dataset_name').
-
-#     Returns:
-#         A Hugging Face DatasetDict containing 'train', 'validation', and 'test' splits.
-#     """
-#     if not dataset_name:
-#         logging.error("Hugging Face dataset name is not specified.")
-#         raise ValueError("HF_DATASET_NAME cannot be empty.")
-
-#     logging.info(f"Loading dataset '{dataset_name}' from Hugging Face...")
-#     try:
-#         # Load the dataset
-#         dataset = load_dataset(dataset_name)
-
-#         # Ensure standard split names if they exist
-#         if not isinstance(dataset, DatasetDict):
-#             logging.warning(f"Loaded dataset is not a DatasetDict. Attempting to split.")
-#             # Handle cases where dataset might be loaded as a single split
-#             # This logic might need adjustment based on actual dataset structure
-#             if len(dataset) > 10000: # Example threshold
-#                 train_testvalid = dataset.train_test_split(test_size=0.2)
-#                 test_valid = train_testvalid['test'].train_test_split(test_size=0.5)
-#                 dataset = DatasetDict({
-#                     'train': train_testvalid['train'],
-#                     'validation': test_valid['train'],
-#                     'test': test_valid['test']
-#                 })
-#             else:
-#                 logging.error("Dataset is too small or not structured for automatic splitting.")
-#                 raise ValueError("Could not automatically determine train/validation/test splits.")
-
-#         # Basic validation
-#         if not all(split in dataset for split in ['train', 'validation', 'test']):
-#             logging.warning(f"Dataset splits found: {list(dataset.keys())}. Expected train, validation, test.")
-#             # Attempt to rename if common alternatives exist (e.g., 'valid')
-#             if 'valid' in dataset and 'validation' not in dataset:
-#                 dataset['validation'] = dataset.pop('valid')
-#                 logging.info("Renamed 'valid' split to 'validation'.")
-#             else:
-#                 raise ValueError("Dataset does not contain the required 'train', 'validation', and 'test' splits.")
-
-#         logging.info(f"Dataset loaded successfully with splits: {list(dataset.keys())}")
-#         logging.info(f"Train split size: {len(dataset['train'])}")
-#         logging.info(f"Validation split size: {len(dataset['validation'])}")
-#         logging.info(f"Test split size: {len(dataset['test'])}")
-
-#         return dataset
-
-#     except Exception as e:
-#         logging.error(f"Failed to load or process dataset '{dataset_name}': {e}", exc_info=True)
-#         raise
-
 def preprocess_features(batch):
     """Applies the AST feature extractor to a batch of audio data.
 
@@ -104,8 +44,8 @@ def preprocess_features(batch):
         raise RuntimeError("Feature extractor was not loaded successfully. Cannot preprocess.")
 
     # Ensure audio data is in the expected format (list of numpy arrays)
-    audio_arrays = [x["array"] for x in batch[AUDIO_COLUMN]]
-    sampling_rate = batch[AUDIO_COLUMN][0]["sampling_rate"]
+    audio_arrays = [x["array"] for x in batch['audio']]
+    sampling_rate = batch['audio'][0]["sampling_rate"]
 
     # Check if sampling rate matches the extractor's expected rate
     if sampling_rate != TARGET_SR:
@@ -141,8 +81,8 @@ def preprocess_features(batch):
 
     # Ensure the label is present and correctly formatted (e.g., integer index)
     # This assumes labels are already numerical indices in the dataset
-    if LABEL_COLUMN not in batch:
-        raise KeyError(f"Label column '{LABEL_COLUMN}' not found in the batch.")
+    if 'label' not in batch:
+        raise KeyError(f"Label column 'label' not found in the batch.")
     # batch["labels"] = batch[LABEL_COLUMN] # Keep the label column
 
     return batch
@@ -152,19 +92,19 @@ if __name__ == "__main__":
     try:
         logging.info("--- Feature Loader Example --- ")
         # 1. Load data
-        datasets = load_data_splits()
+        datasets = load_dataset_splits()
         logging.info(f"Loaded dataset splits: {list(datasets.keys())}")
 
         # Optional: Inspect the first example of the training set
         if datasets and 'train' in datasets and len(datasets['train']) > 0:
             example = datasets['train'][0]
             logging.info(f"First training example structure: {example.keys()}")
-            logging.info(f"Audio sample keys: {example[AUDIO_COLUMN].keys()}")
-            logging.info(f"Audio sampling rate: {example[AUDIO_COLUMN]['sampling_rate']} Hz")
-            logging.info(f"Label: {example[LABEL_COLUMN]}")
+            logging.info(f"Audio sample keys: {example['audio'].keys()}")
+            logging.info(f"Audio sampling rate: {example['audio']['sampling_rate']} Hz")
+            logging.info(f"Label: {example['label']}")
 
             # Verify audio column casting worked
-            if TARGET_SR and example[AUDIO_COLUMN]['sampling_rate'] != TARGET_SR:
+            if TARGET_SR and example['audio']['sampling_rate'] != TARGET_SR:
                 logging.warning("Mismatch between target SR and example SR after loading!")
 
         # 2. Apply preprocessing
@@ -172,7 +112,7 @@ if __name__ == "__main__":
             logging.info("Applying preprocessing function using .map()...")
             # Note: `batched=True` is crucial for efficiency
             # `num_proc` can be set for parallel processing if needed
-            processed_datasets = datasets.map(preprocess_features, batched=True, remove_columns=[AUDIO_COLUMN])
+            processed_datasets = datasets.map(preprocess_features, batched=True, remove_columns=['audio'])
             logging.info("Preprocessing complete.")
 
             # Inspect the first processed example
@@ -180,7 +120,7 @@ if __name__ == "__main__":
                 processed_example = processed_datasets['train'][0]
                 logging.info(f"First processed training example structure: {processed_example.keys()}")
                 logging.info(f"Shape of input_features: {processed_example['input_features'].shape}")
-                logging.info(f"Label: {processed_example[LABEL_COLUMN]}")
+                logging.info(f"Label: {processed_example['label']}")
 
                 # Verify the input shape matches model expectations
                 expected_shape = (FEATURE_EXTRACTOR.nb_mel_bins, FEATURE_EXTRACTOR.max_length)

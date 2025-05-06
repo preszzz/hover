@@ -18,10 +18,18 @@ def load_dataset_splits(dataset_name: str) -> Dataset:
     """
     try:
         dataset = load_dataset(dataset_name)
+
+        logging.info(f"Dataset loaded successfully with splits: {list(dataset.keys())}")
+        logging.info(f"Train split size: {dataset['train'].num_rows}")
+        if 'valid' in dataset:
+            logging.info(f"Validation split size: {dataset['valid'].num_rows}")
+        if 'test' in dataset:
+            logging.info(f"Test split size: {dataset['test'].num_rows}")
+
         return dataset
     except Exception as e:
         logging.error(f"Failed to load dataset {dataset_name}: {e}")
-        return None
+        raise
 
 def clean_directory(path: Path) -> bool:
     """Remove a directory and all its contents recursively.
