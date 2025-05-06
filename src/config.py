@@ -44,6 +44,7 @@ BATCH_SIZE = 32
 EPOCHS = 10
 LR = 5e-5
 
-# --- Configuration ---
+# --- Model Configuration ---
+MODEL_CHECKPOINT = "MIT/ast-finetuned-audioset-10-10-0.4593"
 MODEL_SAVE_DIR = "output_models"
 CHECKPOINT_FILENAME = "ast_best_model.pth"

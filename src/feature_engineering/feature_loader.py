@@ -62,7 +62,7 @@ def preprocess_features(batch):
     inputs = FEATURE_EXTRACTOR(
         audio_arrays,
         sampling_rate=sampling_rate, # Use the actual rate from the batch
-        return_tensors="np" # Return NumPy arrays suitable for TF
+        return_tensors="pt" # Return PyTorch tensors suitable for PyTorch
     )
 
     # The feature extractor typically returns a dictionary.
