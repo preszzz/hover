@@ -12,10 +12,7 @@ from torch.utils.data import DataLoader
 import config
 from utils import load_dataset_splits
 
-from feature_engineering.feature_loader import (
-    preprocess_features,
-    FEATURE_EXTRACTOR
-)
+from feature_engineering.feature_loader import preprocess_features, FEATURE_EXTRACTOR
 from models.transformer_model import build_transformer_model
 
 # Configure logging
