@@ -91,7 +91,7 @@ def train_model():
         collate_fn=collate_fn
     )
     val_dataloader = DataLoader(
-        processed_datasets["validation"],
+        processed_datasets["valid"],
         batch_size=config.BATCH_SIZE,
         shuffle=False, # No need to shuffle validation data
         collate_fn=collate_fn
