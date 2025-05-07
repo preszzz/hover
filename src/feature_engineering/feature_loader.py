@@ -41,14 +41,13 @@ def preprocess_features(batch):
 
     # Ensure audio data is in the expected format (list of numpy arrays)
     audio_arrays = [x["array"] for x in batch['audio']]
-    sampling_rate = batch['audio'][0]["sampling_rate"]
 
     # Apply the feature extractor
     # It handles resampling (if needed, though ideally done already),
     # spectrogram computation, normalization, padding, and truncation.
     inputs = feature_extractor(
         audio_arrays,
-        sampling_rate=sampling_rate, # Use the actual rate from the batch
+        sampling_rate=feature_extractor.sampling_rate, # Use the actual rate from the batch
         return_tensors="pt" # Return PyTorch tensors suitable for PyTorch
     )
 
@@ -92,7 +91,7 @@ if __name__ == "__main__":
                 logging.info(f"Shape of input_features: {processed_example['input_features'].shape}")
 
                 # Verify the input shape matches model expectations
-                expected_shape = (feature_extractor.nb_mel_bins, feature_extractor.max_length)
+                expected_shape = (feature_extractor.num_mel_bins, feature_extractor.max_length)
                 actual_shape = processed_example['input_features'].shape
                 # The extractor might return (batch, bins, time) or (bins, time)
                 # Adjust comparison based on map output. map usually keeps batch dim implicit.
