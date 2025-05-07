@@ -11,11 +11,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 
 # Import from project modules
-from feature_engineering.feature_loader import (
-    load_data_splits,
-    preprocess_features,
-    FEATURE_EXTRACTOR,
-)
+import config
+from utils import load_dataset_splits
+from feature_engineering.feature_loader import preprocess_features, feature_extractor
 from models.transformer_model import build_transformer_model
 # Import collate_fn and device from train script (or redefine if preferred)
 from train import collate_fn, get_device
@@ -25,10 +23,10 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 # --- Configuration ---
 
-MODEL_LOAD_DIR = "trained_models_pytorch"
-MODEL_FILENAME = "ast_best_model.pth" # The saved model state dict
+MODEL_LOAD_DIR = os.path.join(config.ROOT_DIR, 'output_models')
+MODEL_FILENAME = "ast_best_model" # The saved model state dict
 
-RESULTS_SAVE_DIR = "evaluation_results_pytorch"
+RESULTS_SAVE_DIR = os.path.join(config.ROOT_DIR, 'evaluation_results_pytorch')
 CONFUSION_MATRIX_FILENAME = "confusion_matrix.png"
 CLASSIFICATION_REPORT_FILENAME = "classification_report.txt"
 
@@ -41,29 +39,29 @@ def evaluate_model():
     logging.info("--- Starting PyTorch Model Evaluation ---")
 
     # 1. Load Test Data
-    logging.info(f"Loading dataset: {HUGGINGFACE_DATASET_ID}")
-    datasets = load_data_splits(dataset_name=HUGGINGFACE_DATASET_ID)
+    logging.info(f"Loading dataset: {config.DATASET_NAME}")
+    datasets = load_dataset_splits(dataset_name=config.DATASET_NAME)
     if "test" not in datasets:
         logging.error("Test split not found in the dataset. Exiting.")
         return
     test_dataset = datasets["test"]
 
     # 2. Preprocess Test Data
-    if FEATURE_EXTRACTOR is None:
+    if feature_extractor is None:
         logging.error("Feature extractor not loaded. Cannot preprocess. Exiting.")
         return
     logging.info("Applying feature extractor preprocessing to test set...")
     processed_test_dataset = test_dataset.map(
         preprocess_features,
         batched=True,
-        remove_columns=[col for col in test_dataset.column_names if col not in [LABEL_COLUMN]]
+        remove_columns=['audio']
     )
 
     # 3. Create Test DataLoader
     logging.info("Creating Test DataLoader...")
     test_dataloader = DataLoader(
         processed_test_dataset,
-        batch_size=BATCH_SIZE,
+        batch_size=config.BATCH_SIZE,
         shuffle=False, # Important: Do not shuffle test data
         collate_fn=collate_fn
     )
@@ -75,7 +73,7 @@ def evaluate_model():
         return
 
     logging.info(f"Loading trained model state dict from: {model_path}")
-    model = build_transformer_model(num_classes=NUM_CLASSES)
+    model = build_transformer_model(num_classes=2, model_checkpoint=config.MODEL_CHECKPOINT)
     try:
         model.load_state_dict(torch.load(model_path, map_location=DEVICE))
         logging.info("Model state dict loaded successfully.")
@@ -120,7 +118,7 @@ def evaluate_model():
     report = classification_report(
         all_labels,
         all_preds,
-        target_names=CLASS_NAMES, # Use class names from feature_loader
+        target_names=["No", "Yes"], # Use class names from feature_loader
         digits=4
     )
     logging.info("\nClassification Report:\n")
@@ -151,7 +149,7 @@ def evaluate_model():
     # Plot and save confusion matrix
     try:
         plt.figure(figsize=(8, 6))
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=CLASS_NAMES, yticklabels=CLASS_NAMES)
+        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["No", "Yes"], yticklabels=["No", "Yes"])
         plt.xlabel("Predicted Label")
         plt.ylabel("True Label")
         plt.title("Confusion Matrix")

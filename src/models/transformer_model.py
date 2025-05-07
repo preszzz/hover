@@ -24,6 +24,7 @@ def build_transformer_model(num_classes: int, model_checkpoint: str):
     # if the number of classes differs from the pre-trained model.
     model = ASTForAudioClassification.from_pretrained(
         model_checkpoint,
+        cache_dir=config.CACHE_DIR,
         num_labels=num_classes,
         ignore_mismatched_sizes=True, # Allows replacing the classification head
     )

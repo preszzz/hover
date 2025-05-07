@@ -42,7 +42,7 @@ NUM_WORKERS = os.cpu_count()  # For potential parallel processing (optional)
 # --- Training Hyperparameters ---
 BATCH_SIZE = 32
 EPOCHS = 10
-LR = 5e-5
+LR = 3e-5
 
 # --- Model Configuration ---
 MODEL_CHECKPOINT = "MIT/ast-finetuned-audioset-10-10-0.4593"

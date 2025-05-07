@@ -17,8 +17,8 @@ wheels/
 
 # Data
 raw/
-processed/
 interim/
+cache/
 
 # Temp
 .memory-bank/
