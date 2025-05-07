@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 import config
 from utils import load_dataset_splits
 
-from feature_engineering.feature_loader import preprocess_features, FEATURE_EXTRACTOR
+from feature_engineering.feature_loader import preprocess_features, feature_extractor
 from models.transformer_model import build_transformer_model
 
 # Configure logging
@@ -65,7 +65,7 @@ def train_model():
     datasets = load_dataset_splits(dataset_name=config.DATASET_NAME)
 
     # 2. Preprocess Data using Hugging Face `map`
-    if FEATURE_EXTRACTOR is None:
+    if feature_extractor is None:
         logging.error("Feature extractor not loaded. Exiting.")
         return
 
@@ -73,7 +73,7 @@ def train_model():
     processed_datasets = datasets.map(
         preprocess_features,
         batched=True,
-        remove_columns=[col for col in datasets['train'].column_names if col not in ['label', 'audio']] # Keep only label and processed features
+        remove_columns=['audio'] # Keep only label and processed features
         # Consider adding num_proc=os.cpu_count() for parallel processing if needed
     )
     # After mapping, the features should be under the key 'input_features'
@@ -96,7 +96,7 @@ def train_model():
 
     # 4. Build Model
     logging.info(f"Building AST model for 2 classes.")
-    model = build_transformer_model(num_classes=2)
+    model = build_transformer_model(num_classes=2, model_checkpoint=config.MODEL_CHECKPOINT)
     model.to(DEVICE) # Move model to GPU/CPU
 
     # 5. Define Optimizer and Loss Function

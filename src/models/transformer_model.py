@@ -64,13 +64,12 @@ if __name__ == '__main__':
         # Example: Build the model for a specific number of classes
         num_example_classes = 2
         ast_model = build_transformer_model(num_example_classes, config.MODEL_CHECKPOINT)
-        print(f"Loaded AST model: {ast_model.__class__.__name__}")
 
         # Example of creating dummy input matching extractor specs
         dummy_batch_size = 2
         dummy_input_features = torch.randn(
             dummy_batch_size,
-            extractor.nb_mel_bins,
+            extractor.num_mel_bins,
             extractor.max_length
         )
         # For AST, input is passed as 'input_values'
