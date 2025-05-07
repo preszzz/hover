@@ -7,7 +7,7 @@ import torch.nn as nn
 # Define the pre-trained model checkpoint
 import config
 
-def build_transformer_model(num_classes: int, model_checkpoint: str = config.MODEL_CHECKPOINT):
+def build_transformer_model(num_classes: int, model_checkpoint: str):
     """
     Loads a pre-trained Audio Spectrogram Transformer (AST) model
     from Hugging Face for PyTorch.
@@ -29,7 +29,7 @@ def build_transformer_model(num_classes: int, model_checkpoint: str = config.MOD
     )
     return model
 
-def get_feature_extractor(model_checkpoint: str = config.MODEL_CHECKPOINT):
+def get_feature_extractor(model_checkpoint: str, target_sr: int):
     """
     Loads the AST feature extractor.
 
@@ -39,23 +39,31 @@ def get_feature_extractor(model_checkpoint: str = config.MODEL_CHECKPOINT):
     Returns:
         ASTFeatureExtractor: The AST feature extractor instance.
     """
-    feature_extractor = ASTFeatureExtractor.from_pretrained(model_checkpoint)
-    return feature_extractor
+    # Load the feature extractor
+    try:
+        feature_extractor = ASTFeatureExtractor.from_pretrained(
+            model_checkpoint,
+            sampling_rate=target_sr
+        )
+        return feature_extractor
+    except Exception as e:
+        print(f"Error loading feature extractor: {e}")
+        raise
 
 # Example usage (optional, for testing)
 if __name__ == '__main__':
     try:
         print("--- AST Model Example ---")
         # Example: Get the feature extractor
-        extractor = get_feature_extractor()
+        extractor = get_feature_extractor(config.MODEL_CHECKPOINT, config.TARGET_SAMPLE_RATE)
         print(f"Loaded AST feature extractor: {extractor}")
         print(f"Feature Extractor Sampling Rate: {extractor.sampling_rate}")
         print(f"Feature Extractor Max Length: {extractor.max_length}")
         print(f"Feature Extractor Num Mel Bins: {extractor.nb_mel_bins}")
 
         # Example: Build the model for a specific number of classes
-        num_example_classes = 5
-        ast_model = build_transformer_model(num_classes=num_example_classes)
+        num_example_classes = 2
+        ast_model = build_transformer_model(num_example_classes, config.MODEL_CHECKPOINT)
         print(f"Loaded AST model: {ast_model.__class__.__name__}")
 
         # Example of creating dummy input matching extractor specs

@@ -5,7 +5,8 @@ from pathlib import Path
 import shutil
 import yaml
 import fnmatch
-from datasets import load_dataset, Dataset
+from datasets import load_dataset, Dataset, Audio
+import config
 
 def load_dataset_splits(dataset_name: str) -> Dataset:
     """Load a dataset from the Hugging Face Hub.
@@ -17,8 +18,9 @@ def load_dataset_splits(dataset_name: str) -> Dataset:
         Hugging Face Dataset object
     """
     try:
-        dataset = load_dataset(dataset_name)
-
+        dataset = load_dataset(dataset_name, cache_dir=config.CACHE_DIR)
+        dataset = dataset.cast_column("audio", Audio(sampling_rate=config.TARGET_SAMPLE_RATE, mono=True))
+        
         logging.info(f"Dataset loaded successfully with splits: {list(dataset.keys())}")
         logging.info(f"Train split size: {dataset['train'].num_rows}")
         if 'valid' in dataset:
