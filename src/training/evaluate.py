@@ -15,9 +15,6 @@ from feature_engineering.feature_loader import (
     load_data_splits,
     preprocess_features,
     FEATURE_EXTRACTOR,
-    NUM_CLASSES,
-    LABEL_COLUMN,
-    CLASS_NAMES
 )
 from models.transformer_model import build_transformer_model
 # Import collate_fn and device from train script (or redefine if preferred)
@@ -27,10 +24,10 @@ from train import collate_fn, get_device
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # --- Configuration ---
-HUGGINGFACE_DATASET_ID = os.getenv("HUGGINGFACE_DATASET_ID", "hover-d/test")
+
 MODEL_LOAD_DIR = "trained_models_pytorch"
 MODEL_FILENAME = "ast_best_model.pth" # The saved model state dict
-BATCH_SIZE = 16 # Should match or be compatible with training batch size for efficiency
+
 RESULTS_SAVE_DIR = "evaluation_results_pytorch"
 CONFUSION_MATRIX_FILENAME = "confusion_matrix.png"
 CLASSIFICATION_REPORT_FILENAME = "classification_report.txt"
