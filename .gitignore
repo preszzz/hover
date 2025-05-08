@@ -13,6 +13,7 @@ wheels/
 .idea/
 .vscode/
 .cursor/
+.cursorrules
 .DS_Store
 
 # Data
