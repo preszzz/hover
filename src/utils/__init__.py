@@ -1,4 +1,4 @@
 """Utility modules for audio preprocessing pipeline.""" 
 
-from loader import *
+from .loader import *
 

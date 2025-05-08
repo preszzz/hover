@@ -10,10 +10,9 @@ from torch.utils.data import DataLoader
 
 # Import from project modules
 import config
-from utils import load_dataset_splits
-
-from feature_engineering.feature_loader import preprocess_features, feature_extractor
-from models.transformer_model import build_transformer_model
+from src.utils import load_dataset_splits
+from src.feature_engineering.feature_loader import preprocess_features, feature_extractor
+from src.models.transformer_model import build_transformer_model
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

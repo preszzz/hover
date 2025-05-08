@@ -2,6 +2,7 @@
 """Hyperparameter tuning script for the audio classification model using Optuna."""
 
 import logging
+import sys
 import optuna
 import torch
 import torch.nn as nn
@@ -10,10 +11,10 @@ from torch.utils.data import DataLoader
 
 # Import from project modules
 import config
-from utils import load_dataset_splits
-from feature_engineering.feature_loader import preprocess_features, feature_extractor
-from models.transformer_model import build_transformer_model
-from training.train import get_device, collate_fn
+from src.utils.loader import load_dataset_splits
+from src.feature_engineering.feature_loader import preprocess_features, feature_extractor
+from src.models.transformer_model import build_transformer_model
+from src.training.train import get_device, collate_fn
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
