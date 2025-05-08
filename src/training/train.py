@@ -24,9 +24,9 @@ def get_device():
         logging.info("CUDA available. Using GPU.")
         return torch.device("cuda")
     # Add check for MPS (MacOS Metal Performance Shaders) if relevant
-    # elif torch.backends.mps.is_available():
-    #     logging.info("MPS available. Using GPU.")
-    #     return torch.device("mps")
+    elif torch.backends.mps.is_available():
+        logging.info("MPS available. Using GPU.")
+        return torch.device("mps")
     else:
         logging.info("CUDA/MPS not available. Using CPU.")
         return torch.device("cpu")
@@ -40,19 +40,19 @@ def collate_fn(batch):
     Moves tensors to the specified device.
     """
     # Extract features and labels from the batch
-    # The feature extractor output key is expected to be 'input_features'
+    # The feature extractor output key is expected to be 'input_values'
     # after the preprocess_features mapping.
-    input_features = [item['input_features'] for item in batch]
+    input_values = [item['input_values'] for item in batch]
     labels = [item['label'] for item in batch]
 
     # Convert to PyTorch tensors
     # AST expects input_values with shape (batch_size, num_mel_bins, time_frames)
-    input_tensor = torch.tensor(input_features, dtype=torch.float32).to(DEVICE)
-    label_tensor = torch.tensor(labels, dtype=torch.long).to(DEVICE)
+    inputs = torch.stack(input_values, dtype=torch.float32)
+    labels = torch.tensor(labels, dtype=torch.long)
 
     return {
-        "input_values": input_tensor, # AST models expect 'input_values' key
-        "labels": label_tensor
+        "input_values": inputs, # AST models expect 'input_values' key
+        "labels": labels
     }
 
 # --- Training Function ---
@@ -76,7 +76,7 @@ def train_model():
         remove_columns=['audio'] # Keep only label and processed features
         # Consider adding num_proc=os.cpu_count() for parallel processing if needed
     )
-    # After mapping, the features should be under the key 'input_features'
+    # After mapping, the features should be under the key 'input_values'
     # The collate_fn expects this key.
 
     # 3. Create DataLoaders
@@ -120,8 +120,8 @@ def train_model():
 
         for i, batch in enumerate(train_dataloader):
             # Data is already on DEVICE via collate_fn
-            input_values = batch["input_values"]
-            labels = batch["labels"]
+            input_values = batch["input_values"].to(DEVICE)
+            labels = batch["labels"].to(DEVICE)
 
             # Zero gradients
             optimizer.zero_grad()
@@ -144,11 +144,11 @@ def train_model():
             train_correct += (predicted == labels).sum().item()
 
             if (i + 1) % 50 == 0: # Log progress every 50 batches
-                logging.info(f"  Batch {i+1}/{len(train_dataloader)}, Train Loss: {loss.item():.4f}")
+                logging.info(f"Batch {i+1}/{len(train_dataloader)}, Train Loss: {loss.item():.4f}")
 
         avg_train_loss = total_train_loss / len(train_dataloader)
         train_accuracy = 100 * train_correct / train_total
-        logging.info(f"  End of Epoch {epoch+1} - Avg Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.2f}%")
+        logging.info(f"End of Epoch {epoch+1} - Avg Train Loss: {avg_train_loss:.4f}, Train Accuracy: {train_accuracy:.2f}%")
 
         # --- Validation Phase ---
         model.eval() # Set model to evaluation mode
@@ -158,8 +158,8 @@ def train_model():
 
         with torch.no_grad(): # Disable gradient calculations
             for batch in val_dataloader:
-                input_values = batch["input_values"]
-                labels = batch["labels"]
+                input_values = batch["input_values"].to(DEVICE)
+                labels = batch["labels"].to(DEVICE)
 
                 # Forward pass
                 outputs = model(input_values=input_values)

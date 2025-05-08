@@ -15,7 +15,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 # Load the feature extractor once when the module is loaded
 # This avoids reloading it repeatedly during data processing.
 try:
-    feature_extractor = get_feature_extractor(config.MODEL_CHECKPOINT, config.TARGET_SAMPLE_RATE)
+    feature_extractor = get_feature_extractor(config.MODEL_CHECKPOINT)
     logging.info(f"Successfully loaded feature extractor: {feature_extractor}")
     logging.info(f"Target sampling rate from feature extractor: {feature_extractor.sampling_rate} Hz")
     logging.info(f"Feature extractor expects max_length: {feature_extractor.max_length} samples")
@@ -34,7 +34,7 @@ def preprocess_features(batch):
         Expected to contain an 'audio' key with audio data.
 
     Returns:
-        A dictionary containing the processed 'input_features'.
+        A dictionary containing the processed 'input_values'.
     """
     if feature_extractor is None:
         raise RuntimeError("Feature extractor was not loaded successfully. Cannot preprocess.")
@@ -52,11 +52,11 @@ def preprocess_features(batch):
     )
 
     # The feature extractor typically returns a dictionary.
-    # The key for the processed features is often 'input_values' or 'input_features'.
+    # The key for the processed features is often 'input_values'.
     # For AST, it's usually 'input_values'. Let's rename it for clarity if needed.
     # Check the output keys of your specific extractor if unsure.
     if "input_values" in inputs:
-        batch["input_features"] = inputs["input_values"]
+        batch["input_values"] = inputs["input_values"]
     else:
         logging.error(f"Feature extractor output did not contain expected keys ('input_values'). Found: {inputs.keys()}")
         # Handle error appropriately, maybe return None or raise exception
@@ -88,11 +88,11 @@ if __name__ == "__main__":
             if processed_datasets:
                 processed_example = processed_datasets['train'][0]
                 logging.info(f"First processed training example structure: {processed_example.keys()}")
-                logging.info(f"Shape of input_features: {processed_example['input_features'].shape}")
+                logging.info(f"Shape of input_values: {processed_example['input_values'].shape}")
 
                 # Verify the input shape matches model expectations
                 expected_shape = (feature_extractor.num_mel_bins, feature_extractor.max_length)
-                actual_shape = processed_example['input_features'].shape
+                actual_shape = processed_example['input_values'].shape
                 # The extractor might return (batch, bins, time) or (bins, time)
                 # Adjust comparison based on map output. map usually keeps batch dim implicit.
                 if actual_shape[-2:] == expected_shape:

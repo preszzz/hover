@@ -30,7 +30,7 @@ def build_transformer_model(num_classes: int, model_checkpoint: str):
     )
     return model
 
-def get_feature_extractor(model_checkpoint: str, target_sr: int):
+def get_feature_extractor(model_checkpoint: str):
     """
     Loads the AST feature extractor.
 
@@ -44,7 +44,7 @@ def get_feature_extractor(model_checkpoint: str, target_sr: int):
     try:
         feature_extractor = ASTFeatureExtractor.from_pretrained(
             model_checkpoint,
-            sampling_rate=target_sr
+            sampling_rate=config.TARGET_SAMPLE_RATE
         )
         return feature_extractor
     except Exception as e:
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     try:
         print("--- AST Model Example ---")
         # Example: Get the feature extractor
-        extractor = get_feature_extractor(config.MODEL_CHECKPOINT, config.TARGET_SAMPLE_RATE)
+        extractor = get_feature_extractor(config.MODEL_CHECKPOINT)
         print(f"Loaded AST feature extractor: {extractor}")
         print(f"Feature Extractor Sampling Rate: {extractor.sampling_rate}")
         print(f"Feature Extractor Max Length: {extractor.max_length}")
