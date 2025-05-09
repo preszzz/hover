@@ -27,7 +27,7 @@ except Exception as e:
 def preprocess_features(batch):
     """Applies the AST feature extractor to a batch of audio data.
 
-    This function is designed to be used with `dataset.map()`.
+    This function is designed to be used with `dataset.with_transform()`.
 
     Args:
         batch: A dictionary representing a batch of examples from the HF dataset.
@@ -40,7 +40,7 @@ def preprocess_features(batch):
         raise RuntimeError("Feature extractor was not loaded successfully. Cannot preprocess.")
 
     # Ensure audio data is in the expected format (list of numpy arrays)
-    audio_arrays = [x["array"] for x in batch['audio']]
+    audio_arrays = [x["array"] for x in batch['input_values']]
 
     # Apply the feature extractor
     # It handles resampling (if needed, though ideally done already),
