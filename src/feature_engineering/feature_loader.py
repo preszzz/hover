@@ -48,7 +48,7 @@ def preprocess_features(batch):
     inputs = feature_extractor(
         audio_arrays,
         sampling_rate=feature_extractor.sampling_rate, # Use the actual rate from the batch
-        max_length=config.CHUNK_LENGTH_SAMPLES,
+        max_length=feature_extractor.max_length,
         return_tensors="pt" # Return PyTorch tensors suitable for PyTorch
     )
 

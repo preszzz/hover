@@ -1,6 +1,6 @@
 """Audio Spectrogram Transformer (AST) model definition."""
 
-from transformers import ASTFeatureExtractor, ASTForAudioClassification
+from transformers import ASTFeatureExtractor, ASTForAudioClassification, ASTConfig
 import torch 
 import torch.nn as nn 
 
@@ -22,10 +22,19 @@ def build_transformer_model(num_classes: int, model_checkpoint: str):
     # Load the pre-trained AST model
     # Set ignore_mismatched_sizes=True to allow replacing the classification head
     # if the number of classes differs from the pre-trained model.
+    # This can change for later more classes
+    label = {'0': 0, '1': 1}
+
+    ast_config = ASTConfig.from_pretrained(model_checkpoint)
+
+    ast_config.num_labels = num_classes
+    ast_config.label2id = label
+    ast_config.id2label = {v: k for k, v in label.items()}
+
     model = ASTForAudioClassification.from_pretrained(
         model_checkpoint,
         cache_dir=config.CACHE_DIR,
-        num_labels=num_classes,
+        config=ast_config,
         ignore_mismatched_sizes=True, # Allows replacing the classification head
     )
     return model
@@ -44,7 +53,8 @@ def get_feature_extractor(model_checkpoint: str):
     try:
         feature_extractor = ASTFeatureExtractor.from_pretrained(
             model_checkpoint,
-            sampling_rate=config.TARGET_SAMPLE_RATE
+            sampling_rate=config.TARGET_SAMPLE_RATE,
+            max_length=config.CHUNK_LENGTH_SAMPLES
         )
         return feature_extractor
     except Exception as e:
