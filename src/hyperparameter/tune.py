@@ -2,236 +2,128 @@
 """Hyperparameter tuning script for the audio classification model using Optuna."""
 
 import logging
-import sys
 import optuna
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from torch.utils.data import DataLoader
+import os
+from transformers import Trainer, TrainingArguments
 
 # Import from project modules
 import config
 from src.utils.loader import load_dataset_splits
-from src.feature_engineering.feature_loader import preprocess_features, feature_extractor
+from src.feature_engineering.feature_loader import feature_extractor
 from src.models.transformer_model import build_transformer_model
-from src.training.train import get_device, collate_fn
+from src.training.train import get_device, compute_metrics
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Get device for training
+# --- Global Setup ---
 DEVICE = get_device()
+logging.info(f"Device set to: {DEVICE}")
 
-def objective(trial):
-    """Optuna objective function for hyperparameter optimization.
-    
-    Args:
-        trial: Optuna trial object
-        
-    Returns:
-        Validation accuracy to maximize (implicitly float)
-    """
-    # Define hyperparameters to optimize
-    lr = trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True)
-    batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
-    freeze_backbone = trial.suggest_categorical("freeze_backbone", [True, False])
-    dropout_rate = trial.suggest_float("dropout_rate", 0.1, 0.5)
-    weight_decay = trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True)
-    optimizer_name = trial.suggest_categorical("optimizer", ["AdamW", "Adam"])
-    
-    # Log the parameters for this trial
-    logging.info(f"Trial #{trial.number} - Parameters: lr={lr}, batch_size={batch_size}, "
-                f"freeze_backbone={freeze_backbone}, dropout_rate={dropout_rate}, "
-                f"weight_decay={weight_decay}, optimizer={optimizer_name}")
-    
-    # Load data
+# Load raw dataset
+logging.info(f"Loading raw dataset: {config.DATASET_NAME}")
+try:
+    # ds will be used directly by the Trainer with feature_extractor as processing_class
     ds = load_dataset_splits(dataset_name=config.DATASET_NAME)
-    
-    # Check if feature extractor is loaded
-    if feature_extractor is None:
-        logging.error("Feature extractor not loaded. Exiting.")
-        return 0.0
-    
-    # Preprocess data using Hugging Face `map`
-    processed_datasets = ds.map(
-        preprocess_features,
-        batched=True,
-        batch_size=200,
-        writer_batch_size=200,
-        cache_file_names={
-            "train": 'cache/train_processed',
-            "valid": 'cache/valid_processed',
-            "test": 'cache/test_processed'
-        },
-        remove_columns=['audio']
-    )
-    
-    logging.info("------Datasets map() has finished------")
+    logging.info("Raw dataset loaded successfully.")
+except Exception as e:
+    logging.error(f"Failed to load raw dataset: {e}")
+    raise
 
-    # Create DataLoaders with trial batch size
-    train_dataloader = DataLoader(
-        processed_datasets["train"],
-        batch_size=batch_size,
-        shuffle=True,
-        collate_fn=collate_fn
-    )
-    
-    val_dataloader = DataLoader(
-        processed_datasets["valid"],
-        batch_size=batch_size,
-        shuffle=False,
-        collate_fn=collate_fn
-    )
-    
-    # Build model
+# --- Model Initialization for Trainer HPO ---
+def model_init():
+    """Initializes a new model for each Optuna trial."""
+    logging.debug("Initializing model for HPO trial.")
+    # build_transformer_model already handles num_classes and model_checkpoint from config
     model = build_transformer_model(num_classes=2, model_checkpoint=config.MODEL_CHECKPOINT)
-    
-    # Apply dropout rate to attention dropout
-    if hasattr(model.config, "attention_dropout"):
-        model.config.attention_dropout = dropout_rate
-    
-    # Freeze backbone if specified
-    if freeze_backbone:
-        for name, param in model.named_parameters():
-            if "classifier" not in name:
-                param.requires_grad = False
-                
-    model.to(DEVICE)
-    
-    # Setup optimizer based on trial suggestion
-    if optimizer_name == "AdamW":
-        optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
-    else:
-        optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
-    
-    # Loss function
-    criterion = nn.CrossEntropyLoss()
-    
-    # Number of epochs for hyperparameter tuning (reduced from full training)
-    num_epochs = 5
-    
-    # Storage for best validation accuracy
-    best_val_accuracy = 0.0
-    
-    # Training loop
-    for epoch in range(num_epochs):
-        # --- Training Phase ---
-        model.train()
-        total_train_loss = 0.0
-        train_correct = 0
-        train_total = 0
-        
-        for i, batch in enumerate(train_dataloader):
-            input_values = batch["input_values"].to(DEVICE)
-            labels = batch["labels"].to(DEVICE)
-            
-            # Zero gradients
-            optimizer.zero_grad()
-            
-            # Forward pass
-            outputs = model(input_values=input_values)
-            logits = outputs.logits
-            
-            # Calculate loss
-            loss = criterion(logits, labels)
-            
-            # Backward pass and optimization
-            loss.backward()
-            optimizer.step()
-            
-            # Track loss and accuracy
-            total_train_loss += loss.item()
-            _, predicted = torch.max(logits.data, 1)
-            train_total += labels.size(0)
-            train_correct += (predicted == labels).sum().item()
-            
-            # Report intermediate results
-            if (i + 1) % 50 == 0:
-                logging.info(f"Trial #{trial.number} - Epoch {epoch+1}/{num_epochs}, "
-                            f"Batch {i+1}/{len(train_dataloader)}, Train Loss: {loss.item():.4f}")
-        
-        avg_train_loss = total_train_loss / len(train_dataloader)
-        train_accuracy = 100 * train_correct / train_total
-        
-        # --- Validation Phase ---
-        model.eval()
-        total_val_loss = 0.0
-        val_correct = 0
-        val_total = 0
-        
-        with torch.no_grad():
-            for batch in val_dataloader:
-                input_values = batch["input_values"].to(DEVICE)
-                labels = batch["labels"].to(DEVICE)
-                
-                # Forward pass
-                outputs = model(input_values=input_values)
-                logits = outputs.logits
-                
-                # Calculate loss
-                loss = criterion(logits, labels)
-                total_val_loss += loss.item()
-                
-                # Calculate accuracy
-                _, predicted = torch.max(logits.data, 1)
-                val_total += labels.size(0)
-                val_correct += (predicted == labels).sum().item()
-        
-        avg_val_loss = total_val_loss / len(val_dataloader)
-        val_accuracy = 100 * val_correct / val_total
-        
-        # Log epoch results
-        logging.info(f"Trial #{trial.number} - Epoch {epoch+1}/{num_epochs} - "
-                    f"Train Loss: {avg_train_loss:.4f}, Train Acc: {train_accuracy:.2f}%, "
-                    f"Val Loss: {avg_val_loss:.4f}, Val Acc: {val_accuracy:.2f}%")
-        
-        # Report intermediate value to Optuna
-        trial.report(val_accuracy, epoch)
-        
-        # Handle pruning based on intermediate results
-        if trial.should_prune():
-            logging.info(f"Trial #{trial.number} pruned.")
-            raise optuna.exceptions.TrialPruned()
-        
-        # Update best validation accuracy
-        if val_accuracy > best_val_accuracy:
-            best_val_accuracy = val_accuracy
-    
-    # Return best validation accuracy for this trial
-    return best_val_accuracy
+    return model.to(DEVICE) # Ensure model is on the correct device from the start
 
+# --- Optuna Hyperparameter Space Definition ---
+def optuna_hp_space(trial: optuna.trial.Trial) -> dict:
+    """Defines the hyperparameter search space for Optuna."""
+    return {
+        "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True),
+        "per_device_train_batch_size": trial.suggest_categorical("per_device_train_batch_size", [16, 32, 64]),
+        "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),
+        # Other HPs like dropout_rate, freeze_backbone are omitted for simplicity with Trainer HPO
+        # num_train_epochs is fixed in TrainingArguments for HPO trials
+    }
 
-def run_hyperparameter_tuning(n_trials: int, study_name: str):
-    """Run the hyperparameter tuning process.
+# --- Main Hyperparameter Tuning Function ---
+def run_hyperparameter_tuning(n_trials: int, study_name: str, hpo_epochs: int = 5):
+    """Run the hyperparameter tuning process using Hugging Face Trainer.
     
     Args:
-        n_trials: Number of trials to run
-        study_name: Name of the study
+        n_trials: Number of Optuna trials to run.
+        study_name: Name for the Optuna study.
+        hpo_epochs: Number of epochs to train each HPO trial.
     """
-    logging.info(f"Starting hyperparameter tuning with {n_trials} trials")
-    
-    logging.info("Creating new study")
-    study = optuna.create_study(
-        direction="maximize",
-        pruner=optuna.pruners.MedianPruner(n_startup_trials=5, n_warmup_steps=2),
-        study_name=study_name
-    )
-    
-    # Run optimization
-    study.optimize(objective, n_trials=n_trials)
-    
-    # Print best trial information
-    logging.info("Best trial:")
-    best_trial = study.best_trial
-    logging.info(f"Value (Validation Accuracy): {best_trial.value:.2f}%")
-    logging.info("Params:")
-    for key, value in best_trial.params.items():
-        logging.info(f"{key}: {value}")
+    logging.info(f"Starting hyperparameter tuning with {n_trials} trials for study '{study_name}'. Each trial runs for {hpo_epochs} epochs.")
 
+    hpo_output_dir = os.path.join(config.MODEL_SAVE_DIR, "hpo_trainer_output")
+    os.makedirs(hpo_output_dir, exist_ok=True)
+    logging.info(f"HPO outputs will be saved to {hpo_output_dir}")
+
+    # Base TrainingArguments for HPO
+    # Some arguments will be overridden by Optuna during search
+    training_args = TrainingArguments(
+        output_dir=hpo_output_dir, # Directory for trial outputs
+        eval_strategy="epoch",    # Evaluate at the end of each epoch
+        save_strategy="no",       # Don't save checkpoints during HPO, only find best params
+        num_train_epochs=hpo_epochs,
+        logging_steps=10,         # Log more frequently during HPO
+        report_to="none",         # Disable reporting to W&B/Tensorboard for HPO by default
+        load_best_model_at_end=False, # Not needed as we only care about best HPs
+        metric_for_best_model="accuracy", # Metric to optimize (from compute_metrics)
+        disable_tqdm=True,        # Disable progress bars for cleaner HPO logs
+        # Ensure other necessary args are set, e.g., from config or fixed for HPO
+        # learning_rate, per_device_train_batch_size, weight_decay will be set by Optuna
+    )
+
+    # Initialize Trainer for HPO
+    trainer = Trainer(
+        model=None,  # Model will be initialized by model_init
+        args=training_args,
+        model_init=model_init,
+        train_dataset=ds["train"],
+        eval_dataset=ds["valid"],
+        compute_metrics=compute_metrics,
+        processing_class=feature_extractor # Use feature_extractor to process raw data
+        # data_collator is not needed when processing_class is used with default collator
+    )
+
+    # Run hyperparameter search
+    logging.info("Starting Optuna hyperparameter search with Trainer...")
+    best_trial_results = trainer.hyperparameter_search(
+        direction="maximize",       # We want to maximize accuracy
+        backend="optuna",
+        hp_space=optuna_hp_space,
+        n_trials=n_trials,
+        study_name=study_name,
+        # compute_objective: If None, Trainer uses metric_for_best_model from compute_metrics
+        # pruner: Can specify an Optuna pruner here, e.g., optuna.pruners.MedianPruner()
+        # storage: Can specify Optuna storage URL, e.g., "sqlite:///db.sqlite3"
+    )
+
+    # Print best trial information
+    logging.info("--- Hyperparameter Search Finished ---")
+    logging.info("Best trial found:")
+    logging.info(f"  Run ID (objective value / accuracy): {best_trial_results.objective}")
+    logging.info(f"  Hyperparameters: {best_trial_results.hyperparameters}")
+
+    # Clean up HPO output directory if desired (optional)
+    # import shutil
+    # shutil.rmtree(hpo_output_dir)
+    # logging.info(f"Cleaned up HPO output directory: {hpo_output_dir}")
 
 if __name__ == "__main__":
-    # Default values for trials and study name
-    N_TRIALS = 20
-    STUDY_NAME = "ast_hyperparameter_tuning"
+    N_TRIALS = config.HPO_N_TRIALS if hasattr(config, 'HPO_N_TRIALS') else 20 # Default 20 trials
+    STUDY_NAME = config.HPO_STUDY_NAME if hasattr(config, 'HPO_STUDY_NAME') else "ast_hpo_study_trainer"
+    HPO_EPOCHS = config.HPO_EPOCHS if hasattr(config, 'HPO_EPOCHS') else 5 # Default 5 epochs per trial
 
-    run_hyperparameter_tuning(n_trials=N_TRIALS, study_name=STUDY_NAME) 
+    # Ensure feature_extractor is loaded before starting
+    if feature_extractor is None:
+        logging.error("Feature extractor not loaded. Exiting HPO.")
+    else:
+        logging.info("Feature extractor loaded successfully.")
+        run_hyperparameter_tuning(n_trials=N_TRIALS, study_name=STUDY_NAME, hpo_epochs=HPO_EPOCHS) 
