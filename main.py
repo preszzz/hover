@@ -14,9 +14,9 @@ def run_training():
         batch_size=200,
         writer_batch_size=200,
         cache_file_names={
-            "train": "train_processed.cache",
-            "valid": "valid_processed.cache",
-            "test": "test_processed.cache"
+            "train": 'cache/train_processed',
+            "valid": 'cache/valid_processed',
+            "test": 'cache/test_processed'
         },
         remove_columns=['audio']
     )
@@ -24,4 +24,4 @@ def run_training():
     print(processed_datasets)
 
 if __name__ == "__main__":
-    run_training()
+    run_hyperparameter_tuning(20, "ast_hyperparameter_tuning")

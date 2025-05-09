@@ -46,7 +46,7 @@ def collate_fn(batch):
 
     # Convert to PyTorch tensors
     # AST expects input_values with shape (batch_size, num_mel_bins, time_frames)
-    inputs = torch.stack(input_values, dtype=torch.float32)
+    inputs = torch.tensor(input_values, dtype=torch.float32)
     labels = torch.tensor(labels, dtype=torch.long)
 
     return {

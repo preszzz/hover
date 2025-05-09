@@ -18,6 +18,7 @@ def load_dataset_splits(dataset_name: str) -> Dataset:
         Hugging Face Dataset object
     """
     try:
+        print(f"Loading dataset {dataset_name} to {config.CACHE_DIR}")
         dataset = load_dataset(dataset_name, cache_dir=config.CACHE_DIR)
         dataset = dataset.cast_column("audio", Audio(sampling_rate=config.TARGET_SAMPLE_RATE, mono=True))
         

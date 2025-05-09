@@ -45,7 +45,7 @@ def objective(trial):
                 f"weight_decay={weight_decay}, optimizer={optimizer_name}")
     
     # Load data
-    datasets = load_dataset_splits(dataset_name=config.DATASET_NAME)
+    ds = load_dataset_splits(dataset_name=config.DATASET_NAME)
     
     # Check if feature extractor is loaded
     if feature_extractor is None:
@@ -53,12 +53,21 @@ def objective(trial):
         return 0.0
     
     # Preprocess data using Hugging Face `map`
-    processed_datasets = datasets.map(
+    processed_datasets = ds.map(
         preprocess_features,
         batched=True,
+        batch_size=200,
+        writer_batch_size=200,
+        cache_file_names={
+            "train": 'cache/train_processed',
+            "valid": 'cache/valid_processed',
+            "test": 'cache/test_processed'
+        },
         remove_columns=['audio']
     )
     
+    logging.info("------Datasets map() has finished------")
+
     # Create DataLoaders with trial batch size
     train_dataloader = DataLoader(
         processed_datasets["train"],
