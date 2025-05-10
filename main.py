@@ -2,9 +2,10 @@
 from src.hyperparameter.tune import run_hyperparameter_tuning
 from src.feature_engineering.feature_loader import preprocess_features
 from src.utils.loader import load_dataset_splits
+from src.training.train import train_model
 import config
 
-def run_training():
+def run_preprocessing():
     ds = load_dataset_splits(dataset_name=config.DATASET_NAME)
 
     # Preprocess data using Hugging Face `map`
@@ -24,4 +25,4 @@ def run_training():
     print(processed_datasets)
 
 if __name__ == "__main__":
-    run_hyperparameter_tuning(20, "ast_hyperparameter_tuning")
+    train_model()
