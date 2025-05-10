@@ -40,7 +40,7 @@ LABEL_FILENAME = 'label.txt'     # Label as text file
 NUM_WORKERS = os.cpu_count()  # For potential parallel processing (optional) 
 
 # --- Training Hyperparameters ---
-BATCH_SIZE = 32
+BATCH_SIZE = 16
 EPOCHS = 10
 LR = 3e-5
 
