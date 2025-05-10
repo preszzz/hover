@@ -21,7 +21,8 @@ source .venv/bin/activate  # macOS/Linux
 
 This project uses a pre-trained Audio Spectrogram Transformer (AST) model from Hugging Face for binary classification of audio signals (drone vs. non-drone). Key features include:
 
-*   **AST Model:** Leverages "MIT/ast-finetuned-audioset-10-10-0.4593" as a base.
+*   **AST Model:** Leverages "MIT/ast-finetuned-audioset-10-10-0.4593" as a base. The model was fine-tuned on a substantial dataset (approximately 585k training samples, 32k validation samples, and 32k test samples) for the drone detection task.
+*   **Fine-tuned Model on Hugging Face Hub:** The fine-tuned model is available on the Hugging Face Hub: [Drone Acoustic Detection](https://huggingface.co/preszzz/drone-acoustic-detection)
 *   **On-the-Fly Feature Extraction:** Uses `ASTFeatureExtractor` to convert raw audio (resampled to 16kHz) into spectrograms during data loading. No pre-computation and storage of spectrograms is required.
 *   **Hugging Face `datasets`:** Manages data loading and transformations. Supports loading from Hugging Face Hub or local audio folders.
 *   **PyTorch Framework:** Model training and evaluation are implemented in PyTorch.
