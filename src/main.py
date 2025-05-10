@@ -1,8 +1,8 @@
 # Main entry point for the application
-from src.hyperparameter.tune import run_hyperparameter_tuning
-from src.feature_engineering.feature_loader import preprocess_features
-from src.utils.loader import load_dataset_splits
-from src.training.train import train_model
+from hyperparameter.tune import run_hyperparameter_tuning
+from feature_engineering.feature_loader import preprocess_features
+from utils.loader import load_dataset_splits
+from training.train import train_model
 import config
 
 def run_preprocessing():

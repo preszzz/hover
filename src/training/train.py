@@ -1,51 +1,21 @@
-#!/usr/bin/env python
 """Main training script for the audio classification model using PyTorch."""
 
 import logging
 import os
-import torch
 from transformers import Trainer, TrainingArguments
-import evaluate
-import numpy as np
 
 # Import from project modules
 import config
-from src.utils import load_dataset_splits
-from src.feature_engineering.feature_loader import preprocess_features, feature_extractor
-from src.models.transformer_model import build_transformer_model
+from feature_engineering.feature_loader import preprocess_features, feature_extractor
+from models.transformer_model import build_transformer_model
+from utils import load_dataset_splits
+from utils.metric import compute_metrics
+from utils.hardware import get_device
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Device Setup ---
-def get_device():
-    if torch.cuda.is_available():
-        logging.info("CUDA available. Using GPU.")
-        return torch.device("cuda")
-    # Add check for MPS (MacOS Metal Performance Shaders) if relevant
-    elif torch.backends.mps.is_available():
-        logging.info("MPS available. Using GPU.")
-        return torch.device("mps")
-    else:
-        logging.info("CUDA/MPS not available. Using CPU.")
-        return torch.device("cpu")
-
 DEVICE = get_device()
-
-# --- Metrics Computation ---
-accuracy_metric = evaluate.load("accuracy")
-precision_metric = evaluate.load("precision")
-recall_metric = evaluate.load("recall")
-f1_metric = evaluate.load("f1")
-
-def compute_metrics(eval_pred):
-    logits, labels = eval_pred
-    predictions = np.argmax(logits, axis=1)
-    metrics = accuracy_metric.compute(predictions=predictions, references=labels)
-    metrics.update(precision_metric.compute(predictions=predictions, references=labels, average="binary"))
-    metrics.update(recall_metric.compute(predictions=predictions, references=labels, average="binary"))
-    metrics.update(f1_metric.compute(predictions=predictions, references=labels, average="binary"))
-    return metrics
 
 # --- Training Function ---
 def train_model():

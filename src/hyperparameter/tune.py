@@ -6,10 +6,11 @@ from transformers import Trainer, TrainingArguments
 
 # Import from project modules
 import config
-from src.utils.loader import load_dataset_splits
-from src.feature_engineering.feature_loader import feature_extractor
-from src.models.transformer_model import build_transformer_model
-from src.training.train import get_device, compute_metrics
+from feature_engineering.feature_loader import feature_extractor
+from models.transformer_model import build_transformer_model
+from utils.loader import load_dataset_splits
+from utils.metric import compute_metrics
+from utils.hardware import get_device
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
