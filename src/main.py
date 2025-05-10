@@ -1,5 +1,5 @@
 # Main entry point for the application
-from hyperparameter.tune import run_hyperparameter_tuning
+# from hyperparameter.tune import run_hyperparameter_tuning
 from feature_engineering.feature_loader import preprocess_features
 from utils.loader import load_dataset_splits
 from training.train import train_model
