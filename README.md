@@ -6,8 +6,8 @@ An acoustic system for detecting and classifying drones based on their sound sig
 
 ```bash
 # Clone and enter the project directory (if you haven't already)
-# git clone https://github.com/preszzz/hover.git
-# cd hover
+git clone https://github.com/preszzz/hover.git
+cd hover
 
 # Install dependencies
 uv sync
