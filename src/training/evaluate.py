@@ -15,8 +15,7 @@ import config
 from utils import load_dataset_splits
 from feature_engineering.feature_loader import preprocess_features, feature_extractor
 from models.transformer_model import build_transformer_model
-# Import collate_fn and device from train script (or redefine if preferred)
-from train import collate_fn, get_device
+from utils.hardware import get_device
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

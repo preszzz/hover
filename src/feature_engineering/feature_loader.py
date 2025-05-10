@@ -5,8 +5,8 @@ import logging
 
 # Import the feature extractor loading function from our models module
 import config
-from src.utils import load_dataset_splits
-from src.models.transformer_model import get_feature_extractor
+from utils import load_dataset_splits
+from models.transformer_model import get_feature_extractor
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
