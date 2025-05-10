@@ -15,4 +15,5 @@ dependencies = [
     "python-dotenv",
     "transformers>=4.51.3",
     "torch>=2.7.0",
+    "evaluate>=0.4.3",
 ]
