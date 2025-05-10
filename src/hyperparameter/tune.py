@@ -1,8 +1,6 @@
-#!/usr/bin/env python
 """Hyperparameter tuning script for the audio classification model using Optuna."""
 
 import logging
-import optuna
 import os
 from transformers import Trainer, TrainingArguments
 
@@ -20,26 +18,16 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 DEVICE = get_device()
 logging.info(f"Device set to: {DEVICE}")
 
-# Load raw dataset
-logging.info(f"Loading raw dataset: {config.DATASET_NAME}")
-try:
-    # ds will be used directly by the Trainer with feature_extractor as processing_class
-    ds = load_dataset_splits(dataset_name=config.DATASET_NAME)
-    logging.info("Raw dataset loaded successfully.")
-except Exception as e:
-    logging.error(f"Failed to load raw dataset: {e}")
-    raise
-
 # --- Model Initialization for Trainer HPO ---
 def model_init():
     """Initializes a new model for each Optuna trial."""
     logging.debug("Initializing model for HPO trial.")
     # build_transformer_model already handles num_classes and model_checkpoint from config
     model = build_transformer_model(num_classes=2, model_checkpoint=config.MODEL_CHECKPOINT)
-    return model.to(DEVICE) # Ensure model is on the correct device from the start
+    return model.to(DEVICE)
 
 # --- Optuna Hyperparameter Space Definition ---
-def optuna_hp_space(trial: optuna.trial.Trial) -> dict:
+def optuna_hp_space(trial):
     """Defines the hyperparameter search space for Optuna."""
     return {
         "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True),
@@ -50,15 +38,27 @@ def optuna_hp_space(trial: optuna.trial.Trial) -> dict:
     }
 
 # --- Main Hyperparameter Tuning Function ---
-def run_hyperparameter_tuning(n_trials: int, study_name: str, hpo_epochs: int = 5):
+def run_hyperparameter_tuning(n_trials: int, study_name: str):
     """Run the hyperparameter tuning process using Hugging Face Trainer.
     
     Args:
         n_trials: Number of Optuna trials to run.
         study_name: Name for the Optuna study.
-        hpo_epochs: Number of epochs to train each HPO trial.
     """
-    logging.info(f"Starting hyperparameter tuning with {n_trials} trials for study '{study_name}'. Each trial runs for {hpo_epochs} epochs.")
+    # Load raw dataset
+    logging.info(f"Initializing dataset")
+    try:
+        ds = load_dataset_splits(dataset_name=config.DATASET_NAME)
+        
+        ds = ds.rename_column("audio", "input_values")
+        processed_datasets = ds.with_transform(feature_extractor)
+
+        logging.info("Dataset initialized successfully.")
+    except Exception as e:
+        logging.error(f"Failed to initialize dataset: {e}")
+        raise
+
+    logging.info(f"Starting hyperparameter tuning with {n_trials} trials for study '{study_name}'.")
 
     hpo_output_dir = os.path.join(config.MODEL_SAVE_DIR, "hpo_trainer_output")
     os.makedirs(hpo_output_dir, exist_ok=True)
@@ -67,17 +67,14 @@ def run_hyperparameter_tuning(n_trials: int, study_name: str, hpo_epochs: int = 
     # Base TrainingArguments for HPO
     # Some arguments will be overridden by Optuna during search
     training_args = TrainingArguments(
-        output_dir=hpo_output_dir, # Directory for trial outputs
-        eval_strategy="epoch",    # Evaluate at the end of each epoch
-        save_strategy="no",       # Don't save checkpoints during HPO, only find best params
-        num_train_epochs=hpo_epochs,
-        logging_steps=10,         # Log more frequently during HPO
-        report_to="none",         # Disable reporting to W&B/Tensorboard for HPO by default
-        load_best_model_at_end=False, # Not needed as we only care about best HPs
-        metric_for_best_model="accuracy", # Metric to optimize (from compute_metrics)
-        disable_tqdm=True,        # Disable progress bars for cleaner HPO logs
-        # Ensure other necessary args are set, e.g., from config or fixed for HPO
-        # learning_rate, per_device_train_batch_size, weight_decay will be set by Optuna
+        output_dir=hpo_output_dir,
+        eval_strategy="epoch",
+        save_strategy="no",
+        num_train_epochs=5,
+        logging_steps=10,
+        load_best_model_at_end=False,
+        metric_for_best_model="accuracy",
+        disable_tqdm=False,
     )
 
     # Initialize Trainer for HPO
@@ -85,11 +82,10 @@ def run_hyperparameter_tuning(n_trials: int, study_name: str, hpo_epochs: int = 
         model=None,  # Model will be initialized by model_init
         args=training_args,
         model_init=model_init,
-        train_dataset=ds["train"],
-        eval_dataset=ds["valid"],
+        train_dataset=processed_datasets["train"],
+        eval_dataset=processed_datasets["valid"],
         compute_metrics=compute_metrics,
-        processing_class=feature_extractor # Use feature_extractor to process raw data
-        # data_collator is not needed when processing_class is used with default collator
+        processing_class=feature_extractor
     )
 
     # Run hyperparameter search
@@ -101,29 +97,16 @@ def run_hyperparameter_tuning(n_trials: int, study_name: str, hpo_epochs: int = 
         n_trials=n_trials,
         study_name=study_name,
         # compute_objective: If None, Trainer uses metric_for_best_model from compute_metrics
-        # pruner: Can specify an Optuna pruner here, e.g., optuna.pruners.MedianPruner()
-        # storage: Can specify Optuna storage URL, e.g., "sqlite:///db.sqlite3"
     )
 
     # Print best trial information
     logging.info("--- Hyperparameter Search Finished ---")
     logging.info("Best trial found:")
-    logging.info(f"  Run ID (objective value / accuracy): {best_trial_results.objective}")
-    logging.info(f"  Hyperparameters: {best_trial_results.hyperparameters}")
-
-    # Clean up HPO output directory if desired (optional)
-    # import shutil
-    # shutil.rmtree(hpo_output_dir)
-    # logging.info(f"Cleaned up HPO output directory: {hpo_output_dir}")
+    logging.info(f"Run ID (objective value / accuracy): {best_trial_results.objective}")
+    logging.info(f"Hyperparameters: {best_trial_results.hyperparameters}")
 
 if __name__ == "__main__":
-    N_TRIALS = config.HPO_N_TRIALS if hasattr(config, 'HPO_N_TRIALS') else 20 # Default 20 trials
-    STUDY_NAME = config.HPO_STUDY_NAME if hasattr(config, 'HPO_STUDY_NAME') else "ast_hpo_study_trainer"
-    HPO_EPOCHS = config.HPO_EPOCHS if hasattr(config, 'HPO_EPOCHS') else 5 # Default 5 epochs per trial
+    N_TRIALS = 20 # Default 20 trials
+    STUDY_NAME = "ast_hpo_study_trainer"
 
-    # Ensure feature_extractor is loaded before starting
-    if feature_extractor is None:
-        logging.error("Feature extractor not loaded. Exiting HPO.")
-    else:
-        logging.info("Feature extractor loaded successfully.")
-        run_hyperparameter_tuning(n_trials=N_TRIALS, study_name=STUDY_NAME, hpo_epochs=HPO_EPOCHS) 
+    run_hyperparameter_tuning(n_trials=N_TRIALS, study_name=STUDY_NAME) 

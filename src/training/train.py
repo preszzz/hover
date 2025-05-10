@@ -62,6 +62,7 @@ def train_model():
         return
 
     logging.info("Applying feature extractor preprocessing...")
+    ds = ds.rename_column("audio", "input_values")
     processed_datasets = ds.with_transform(preprocess_features)
 
     # Build Model
@@ -90,8 +91,6 @@ def train_model():
         warmup_ratio=0.1,
         metric_for_best_model="accuracy",
         load_best_model_at_end=True,
-        report_to="tensorboard",
-        logging_dir=os.path.join(trainer_output_dir, "logs")
     )
 
     logging.info("Initializing Trainer...")

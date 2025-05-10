@@ -46,5 +46,5 @@ LR = 3e-5
 
 # --- Model Configuration ---
 MODEL_CHECKPOINT = "MIT/ast-finetuned-audioset-10-10-0.4593"
-MODEL_SAVE_DIR = os.path.join(ROOT_DIR, 'output_models')
+MODEL_SAVE_DIR = 'output_models'
 CHECKPOINT_FILENAME = "ast_best_model"
