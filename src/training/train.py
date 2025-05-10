@@ -91,6 +91,7 @@ def train_model():
         warmup_ratio=0.1,
         metric_for_best_model="accuracy",
         load_best_model_at_end=True,
+        # fp16=True
     )
 
     logging.info("Initializing Trainer...")

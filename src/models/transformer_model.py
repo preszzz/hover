@@ -1,8 +1,7 @@
 """Audio Spectrogram Transformer (AST) model definition."""
 
+import torch
 from transformers import ASTFeatureExtractor, ASTForAudioClassification, ASTConfig
-import torch 
-import torch.nn as nn 
 
 # Define the pre-trained model checkpoint
 import config
@@ -53,8 +52,7 @@ def get_feature_extractor(model_checkpoint: str):
     try:
         feature_extractor = ASTFeatureExtractor.from_pretrained(
             model_checkpoint,
-            sampling_rate=config.TARGET_SAMPLE_RATE,
-            max_length=config.CHUNK_LENGTH_SAMPLES
+            sampling_rate=config.TARGET_SAMPLE_RATE
         )
         return feature_extractor
     except Exception as e:

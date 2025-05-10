@@ -47,9 +47,11 @@ def preprocess_features(batch):
     # spectrogram computation, normalization, padding, and truncation.
     inputs = feature_extractor(
         audio_arrays,
-        sampling_rate=feature_extractor.sampling_rate, # Use the actual rate from the batch
-        max_length=feature_extractor.max_length,
-        return_tensors="pt" # Return PyTorch tensors suitable for PyTorch
+        sampling_rate=feature_extractor.sampling_rate,
+        max_length=config.CHUNK_LENGTH_SAMPLES,
+        padding="max_length",
+        truncation=True,
+        return_tensors="pt"
     )
 
     # The feature extractor typically returns a dictionary.
