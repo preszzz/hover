@@ -1,5 +1,6 @@
-import torch
 import logging
+import torch
+import sounddevice as sd
 
 # --- Device Setup ---
 def get_device():
@@ -33,36 +34,20 @@ def list_audio_devices():
         None: Prints device information to console
     """
     try:
-        import sounddevice as sd
-        devices = sd.query_devices()
-        
         print("\nAvailable Audio Input Devices:")
-        print("-" * 50)
+        print("-" * 30)
         
-        for i, device in enumerate(devices):
+        for device in sd.query_devices():
             # Only show input devices or devices with input channels
             if device['max_input_channels'] > 0:
-                print(f"Device {i}: {device['name']}")
-                print(f"  Max Input Channels: {device['max_input_channels']}")
-                print(f"  Default Sample Rate: {device['default_samplerate']}")
-                if 'hostapi' in device:
-                    print(f"  Host API: {device['hostapi']}")
-                print()
+                print(f"\nInput Device Name: {device['name']}")
+                print(f"Input Device ID: {device['index']}")
+                print(f"Max Input Channels: {device['max_input_channels']}")
+                print(f"Default Sample Rate: {device['default_samplerate']}")
                 
         # Show default input device
         default_input = sd.query_devices(kind='input')
-        print(f"Default input device: {default_input['name']}")
+        print(f"\nDefault input device: {default_input['name']}")
         
-    except ImportError:
-        print("sounddevice module not installed. Install with 'uv pip install sounddevice'")
     except Exception as e:
         print(f"Error listing audio devices: {e}")
-
-
-if __name__ == "__main__":
-    # When run directly, display hardware information
-    device = get_device()
-    print(f"Using device: {device}")
-    
-    # List available audio input devices
-    list_audio_devices()

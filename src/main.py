@@ -2,7 +2,8 @@
 # from hyperparameter.tune import run_hyperparameter_tuning
 from feature_engineering.feature_loader import preprocess_features
 from utils.loader import load_dataset_splits
-from training.train import train_model
+from utils.hardware import list_audio_devices
+# from training.train import train_model
 import config
 
 def run_preprocessing():
@@ -25,4 +26,5 @@ def run_preprocessing():
     print(processed_datasets)
 
 if __name__ == "__main__":
-    train_model()
+    # train_model()
+    list_audio_devices()
