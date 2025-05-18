@@ -140,6 +140,6 @@ Installation is handled by `uv sync` based on `pyproject.toml`.
 7. **drone-audio-detection**
    - [GitHub](https://github.com/BowonY/drone-audio-detection/tree/develop)
 
-8. **SOUND-BASED DRONE FAULT CLASSIFICATION USING MULTI-TASK LEARNING (Version 1)**
+8. **SOUND-BASED DRONE FAULT CLASSIFICATION USING MULTI-TASK LEARNING**
    - 29th International Congress on Sound and Vibration (ICSV29), Wonjun Yi, Jung-Woo Choi, & Jae-Woo Lee. (2023).
    - [Zenodo](https://doi.org/10.5281/zenodo.7779574)

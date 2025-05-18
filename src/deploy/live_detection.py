@@ -2,7 +2,6 @@
 Real-time drone detection using a trained AST model with microphone input.
 """
 
-import os
 import logging
 import time
 import numpy as np
@@ -12,28 +11,23 @@ import matplotlib.pyplot as plt
 from matplotlib.animation import FuncAnimation
 from queue import Queue
 import threading
+from transformers import ASTForAudioClassification
 
 # Import from project modules
 import config
-from models.transformer_model import build_transformer_model, get_feature_extractor
+from models.transformer_model import get_feature_extractor
 from utils.hardware import get_device
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Configuration ---
-# Audio settings
-SAMPLE_RATE = config.TARGET_SAMPLE_RATE  # 16kHz for AST
-CHUNK_DURATION = config.CHUNK_LENGTH_MS / 1000  # in seconds (1.0s)
-CHUNK_SAMPLES = int(SAMPLE_RATE * CHUNK_DURATION)
-DETECTION_THRESHOLD = 0.6  # Confidence threshold for positive detection
-
-# Model settings
-MODEL_LOAD_DIR = os.path.join(config.ROOT_DIR, 'output_models')
-MODEL_FILENAME = config.CHECKPOINT_FILENAME  # "ast_best_model"
-
 # Device setup
 DEVICE = get_device()
+
+# Audio processing constants from config
+SAMPLE_RATE = config.TARGET_SAMPLE_RATE
+CHUNK_SAMPLES = config.CHUNK_LENGTH_SAMPLES
+DETECTION_THRESHOLD = 0.7 # Default threshold, tune as needed
 
 # Global variables
 audio_queue = Queue()
@@ -43,39 +37,14 @@ detection_count = 0
 current_prediction = None
 current_confidence = 0.0
 
-
-def load_model():
-    """Load the trained AST model."""
-    model_path = os.path.join(MODEL_LOAD_DIR, MODEL_FILENAME)
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Model not found at {model_path}. Train the model first.")
-
-    model = build_transformer_model(num_classes=2, model_checkpoint=config.MODEL_CHECKPOINT)
-    
-    try:
-        model.load_state_dict(torch.load(model_path, map_location=DEVICE))
-        logging.info(f"Model loaded successfully from {model_path}")
-    except Exception as e:
-        logging.error(f"Failed to load model: {e}")
-        raise
-
-    model.to(DEVICE)
-    model.eval()
-    return model
-
-
 def audio_callback(indata, frames, time, status):
     """Callback for sounddevice to capture audio chunks."""
     if status:
         logging.warning(f"Audio callback status: {status}")
     
     # Get the audio data as float32 and put it in the queue
-    audio_chunk = indata.copy().astype(np.float32).squeeze()
+    audio_chunk = indata.copy().squeeze()
     
-    # Normalize audio to [-1, 1] range if not already
-    if np.max(np.abs(audio_chunk)) > 1.0:
-        audio_chunk = audio_chunk / np.max(np.abs(audio_chunk))
-        
     audio_queue.put(audio_chunk)
 
 
@@ -101,18 +70,19 @@ def process_audio_thread(model, feature_extractor):
                 audio_chunk = audio_chunk[:CHUNK_SAMPLES]
             
             # Process audio with AST feature extractor
-            inputs = feature_extractor(
+            processed_inputs = feature_extractor(
                 audio_chunk, 
                 sampling_rate=SAMPLE_RATE,
                 return_tensors="pt"
             )
             
-            # Move to the correct device
-            inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+            # Move the necessary tensor to the correct device
+            input_values = processed_inputs.input_values.to(DEVICE)
             
             # Make prediction
             with torch.no_grad():
-                outputs = model(**inputs)
+                # Pass the tensor directly
+                outputs = model(input_values) 
                 logits = outputs.logits
                 probabilities = torch.nn.functional.softmax(logits, dim=-1)
                 
@@ -191,8 +161,19 @@ def main():
     try:
         # Load model and feature extractor
         logging.info("Loading AST model and feature extractor...")
-        model = load_model()
-        feature_extractor = get_feature_extractor(config.MODEL_CHECKPOINT)
+        try:
+            # Load the fine-tuned model directly
+            model = ASTForAudioClassification.from_pretrained(
+                config.MODEL_HUB_ID,
+                cache_dir=config.CACHE_DIR
+            )
+            model.to(DEVICE)
+            model.eval()
+            feature_extractor = get_feature_extractor(config.MODEL_HUB_ID)
+            logging.info("Model and feature extractor loaded successfully")
+        except Exception as e:
+            logging.error(f"Failed to load model from {config.MODEL_HUB_ID}: {e}")
+            raise
         
         # Start audio processing thread
         processing_thread = threading.Thread(
@@ -227,8 +208,14 @@ def main():
         
         # Start audio stream
         logging.info("Starting audio stream. Press Ctrl+C to stop.")
-        with sd.InputStream(callback=audio_callback, channels=1, samplerate=SAMPLE_RATE,
-                            blocksize=CHUNK_SAMPLES, latency='low'):
+        with sd.InputStream(
+            callback=audio_callback, 
+            channels=1, 
+            samplerate=SAMPLE_RATE,
+            blocksize=CHUNK_SAMPLES, 
+            latency='low',
+            dtype='float32'
+            ):
             plt.show()
             
     except KeyboardInterrupt:
@@ -241,7 +228,6 @@ def main():
         if 'processing_thread' in locals() and processing_thread.is_alive():
             processing_thread.join(timeout=1.0)
         logging.info(f"Session summary: {detection_count} drone detections")
-
 
 if __name__ == "__main__":
     main() 

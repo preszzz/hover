@@ -48,3 +48,4 @@ LR = 3e-5
 MODEL_CHECKPOINT = "MIT/ast-finetuned-audioset-10-10-0.4593"
 MODEL_SAVE_DIR = 'output_models'
 CHECKPOINT_FILENAME = "ast_best_model"
+MODEL_HUB_ID = "username/my_test_audio_dataset"
