@@ -13,7 +13,7 @@ RAW_DATA_DIR = os.path.join(DATA_DIR, 'raw')
 INTERIM_DATA_DIR = os.path.join(DATA_DIR, 'interim')
 PROCESSED_DATA_DIR = os.path.join(DATA_DIR, 'processed')
 
-DATASET_NAME = os.getenv("HUGGINGFACE_DATASET_ID")
+DATASET_NAME = os.getenv("HF_DATASET_ID")
 CACHE_DIR = os.getenv("CACHE_DIR")
 
 # --- Audio Processing Parameters ---
@@ -47,7 +47,7 @@ LR = 3e-5
 # --- Model Configuration ---
 MODEL_CHECKPOINT = "MIT/ast-finetuned-audioset-10-10-0.4593"
 MODEL_SAVE_DIR = 'output_models'
-MODEL_HUB_ID = "username/my_test_audio_dataset"
+MODEL_HUB_ID = os.getenv("HF_MODEL_ID")
 
 # --- Hyperparameter Tuning ---
 STUDY_NAME = "drone-audio-detection-05-17"
