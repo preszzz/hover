@@ -70,19 +70,19 @@ def process_audio_thread(model, feature_extractor):
                 audio_chunk = audio_chunk[:CHUNK_SAMPLES]
             
             # Process audio with AST feature extractor
-            processed_inputs = feature_extractor(
+            inputs = feature_extractor(
                 audio_chunk, 
                 sampling_rate=SAMPLE_RATE,
                 return_tensors="pt"
             )
             
             # Move the necessary tensor to the correct device
-            input_values = processed_inputs.input_values.to(DEVICE)
+            input_values = inputs.input_values.to(DEVICE)
             
             # Make prediction
             with torch.no_grad():
                 # Pass the tensor directly
-                outputs = model(input_values) 
+                outputs = model(input_values)
                 logits = outputs.logits
                 probabilities = torch.nn.functional.softmax(logits, dim=-1)
                 
