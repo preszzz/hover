@@ -111,9 +111,9 @@ This pipeline processes raw audio into MFCC features:
 
 Installation is handled by `uv sync` based on `pyproject.toml`.
 
-## Example Public Datasets (for context or use)
+## Public Datasets
 
-(This section lists publicly available drone audio datasets. You may need to adapt their structure or use Hugging Face `datasets` tools to load them.)
+This section lists publicly available drone audio datasets. You may need to adapt their structure or use Hugging Face `datasets` tools to load them.
 
 1. **Audio Based Drone Detection and Identification using Deep Learning**
    - Sara A Al-Emadi, Abdulla K Al-Ali, Abdulaziz Al-Ali, Amr Mohamed.
