@@ -1,10 +1,10 @@
 # Main entry point for the application
+# from training.train import train_model
 # from hyperparameter.tune import run_hyperparameter_tuning
 from feature_engineering.feature_loader import preprocess_features
 from utils.loader import load_dataset_splits
 from utils.hardware import list_audio_devices
 from deploy.live_detection import main
-# from training.train import train_model
 import config
 
 def run_preprocessing():

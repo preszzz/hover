@@ -37,7 +37,7 @@ MFCC_FILENAME = 'mfcc.npy'       # MFCC features as numpy array
 LABEL_FILENAME = 'label.txt'     # Label as text file
 
 # --- Misc ---
-NUM_WORKERS = os.cpu_count()  # For potential parallel processing (optional) 
+NUM_WORKERS = os.cpu_count()
 
 # --- Training Hyperparameters ---
 BATCH_SIZE = 16
@@ -47,5 +47,8 @@ LR = 3e-5
 # --- Model Configuration ---
 MODEL_CHECKPOINT = "MIT/ast-finetuned-audioset-10-10-0.4593"
 MODEL_SAVE_DIR = 'output_models'
-CHECKPOINT_FILENAME = "ast_best_model"
 MODEL_HUB_ID = "username/my_test_audio_dataset"
+
+# --- Hyperparameter Tuning ---
+STUDY_NAME = "drone-audio-detection-05-17"
+N_TRIALS = 10

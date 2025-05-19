@@ -23,7 +23,6 @@ logging.info(f"Device set to: {DEVICE}")
 def model_init():
     """Initializes a new model for each Optuna trial."""
     logging.debug("Initializing model for HPO trial.")
-    # build_transformer_model already handles num_classes and model_checkpoint from config
     model = build_transformer_model(num_classes=2, model_checkpoint=config.MODEL_CHECKPOINT)
     return model.to(DEVICE)
 
@@ -31,11 +30,14 @@ def model_init():
 def optuna_hp_space(trial):
     """Defines the hyperparameter search space for Optuna."""
     return {
+        "hub_model_id": f"preszzz/{config.STUDY_NAME}-trial-{trial.number}",
         "learning_rate": trial.suggest_float("learning_rate", 1e-5, 1e-3, log=True),
-        "per_device_train_batch_size": trial.suggest_categorical("per_device_train_batch_size", [16, 32, 64]),
+        "per_device_train_batch_size": trial.suggest_categorical("per_device_train_batch_size", [8, 16, 32]),
         "weight_decay": trial.suggest_float("weight_decay", 1e-6, 1e-3, log=True),
-        # Other HPs like dropout_rate, freeze_backbone are omitted for simplicity with Trainer HPO
-        # num_train_epochs is fixed in TrainingArguments for HPO trials
+        "warmup_ratio": trial.suggest_float("warmup_ratio", 0.0, 0.2),
+        "lr_scheduler_type": trial.suggest_categorical("lr_scheduler_type", ["linear", "cosine", "polynomial"]),
+        "max_grad_norm": trial.suggest_float("max_grad_norm", 0.1, 1.0),
+        "optim": trial.suggest_categorical("optim", ["adamw_torch", "adafactor", "adamw_torch_fused"])
     }
 
 # --- Main Hyperparameter Tuning Function ---
@@ -66,7 +68,6 @@ def run_hyperparameter_tuning(n_trials: int, study_name: str):
     logging.info(f"HPO outputs will be saved to {hpo_output_dir}")
 
     # Base TrainingArguments for HPO
-    # Some arguments will be overridden by Optuna during search
     training_args = TrainingArguments(
         output_dir=hpo_output_dir,
         eval_strategy="epoch",
@@ -80,7 +81,7 @@ def run_hyperparameter_tuning(n_trials: int, study_name: str):
 
     # Initialize Trainer for HPO
     trainer = Trainer(
-        model=None,  # Model will be initialized by model_init
+        model=None,
         args=training_args,
         model_init=model_init,
         train_dataset=processed_datasets["train"],
@@ -97,7 +98,6 @@ def run_hyperparameter_tuning(n_trials: int, study_name: str):
         hp_space=optuna_hp_space,
         n_trials=n_trials,
         study_name=study_name,
-        # compute_objective: If None, Trainer uses metric_for_best_model from compute_metrics
     )
 
     # Print best trial information
@@ -107,7 +107,7 @@ def run_hyperparameter_tuning(n_trials: int, study_name: str):
     logging.info(f"Hyperparameters: {best_trial_results.hyperparameters}")
 
 if __name__ == "__main__":
-    N_TRIALS = 20 # Default 20 trials
+    N_TRIALS = 20
     STUDY_NAME = "ast_hpo_study_trainer"
 
     run_hyperparameter_tuning(n_trials=N_TRIALS, study_name=STUDY_NAME) 

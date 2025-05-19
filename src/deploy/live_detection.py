@@ -27,7 +27,7 @@ DEVICE = get_device()
 # Audio processing constants from config
 SAMPLE_RATE = config.TARGET_SAMPLE_RATE
 CHUNK_SAMPLES = config.CHUNK_LENGTH_SAMPLES
-DETECTION_THRESHOLD = 0.7 # Default threshold, tune as needed
+DETECTION_THRESHOLD = 0.7
 
 # Global variables
 audio_queue = Queue()
@@ -60,7 +60,7 @@ def process_audio_thread(model, feature_extractor):
             audio_chunk = audio_queue.get()
             
             # Skip processing if chunk is too short
-            if len(audio_chunk) < CHUNK_SAMPLES * 0.8:  # Allow some flexibility
+            if len(audio_chunk) < CHUNK_SAMPLES * 0.8:
                 continue
                 
             # Ensure correct length (pad or truncate)
@@ -81,7 +81,6 @@ def process_audio_thread(model, feature_extractor):
             
             # Make prediction
             with torch.no_grad():
-                # Pass the tensor directly
                 outputs = model(input_values)
                 logits = outputs.logits
                 probabilities = torch.nn.functional.softmax(logits, dim=-1)
@@ -96,11 +95,11 @@ def process_audio_thread(model, feature_extractor):
                 
                 # Add to history
                 prediction_history.append((pred_class, confidence))
-                if len(prediction_history) > 50:  # Keep only recent history
+                if len(prediction_history) > 50:
                     prediction_history.pop(0)
                 
                 # Count detections
-                if pred_class == 1 and confidence >= DETECTION_THRESHOLD:  # 1 = drone
+                if pred_class == 1 and confidence >= DETECTION_THRESHOLD:
                     detection_count += 1
                     logging.info(f"DRONE DETECTED! Confidence: {confidence:.4f}")
                 
@@ -110,7 +109,7 @@ def process_audio_thread(model, feature_extractor):
                                 f"Confidence: {confidence:.4f}, "
                                 f"Total detections: {detection_count}")
         
-        time.sleep(0.05)  # Small sleep to prevent CPU overuse
+        time.sleep(0.05)
 
 
 def update_plot(frame, ax_audio, ax_pred, line_audio, bar_pred):
@@ -119,12 +118,12 @@ def update_plot(frame, ax_audio, ax_pred, line_audio, bar_pred):
     
     # Get the latest audio chunk if available
     if not audio_queue.empty():
-        audio_data = audio_queue.queue[-1]  # Peek at the last item
+        audio_data = audio_queue.queue[-1]
         line_audio.set_ydata(audio_data)
     
     # Update prediction bar
     if current_prediction is not None:
-        bar_colors = ['blue', 'red']  # blue for no drone, red for drone
+        bar_colors = ['blue', 'red']
         
         # Remove old bars and create new ones
         ax_pred.clear()

@@ -20,9 +20,8 @@ def build_transformer_model(num_classes: int, model_checkpoint: str):
     """
     # Load the pre-trained AST model
     # Set ignore_mismatched_sizes=True to allow replacing the classification head
-    # if the number of classes differs from the pre-trained model.
     # This can change for later more classes
-    label = {'0': 0, '1': 1}
+    label = {'not_drone': 0, 'drone': 1}
 
     ast_config = ASTConfig.from_pretrained(model_checkpoint)
 
@@ -97,5 +96,3 @@ if __name__ == '__main__':
     except Exception as e:
         print(f"Could not run AST example: {e}")
         print("Ensure the MODEL_CHECKPOINT is correct and dependencies (torch, transformers) are installed.")
-        import traceback
-        traceback.print_exc() 

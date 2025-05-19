@@ -28,7 +28,7 @@ For Windows:
 
 3. **Adjust the detection threshold** (if needed)
 
-Open `src/live_detection.py` and modify the `DETECTION_THRESHOLD` value (default: 0.6):
+Open `src/live_detection.py` and modify the `DETECTION_THRESHOLD` value (default: 0.7):
 - Higher values (e.g., 0.8) make the system less sensitive but more precise
 - Lower values (e.g., 0.4) make it more sensitive but may increase false positives
 

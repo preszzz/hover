@@ -39,12 +39,10 @@ def preprocess_features(batch):
     if feature_extractor is None:
         raise RuntimeError("Feature extractor was not loaded successfully. Cannot preprocess.")
 
-    # Ensure audio data is in the expected format (list of numpy arrays)
     audio_arrays = [x["array"] for x in batch['input_values']]
 
     # Apply the feature extractor
-    # It handles resampling (if needed, though ideally done already),
-    # spectrogram computation, normalization, padding, and truncation.
+    # It handles resampling spectrogram computation, normalization, padding, and truncation.
     inputs = feature_extractor(
         audio_arrays,
         sampling_rate=feature_extractor.sampling_rate,
@@ -54,19 +52,12 @@ def preprocess_features(batch):
         return_tensors="pt"
     )
 
-    # The feature extractor typically returns a dictionary.
-    # The key for the processed features is often 'input_values'.
-    # For AST, it's usually 'input_values'. Let's rename it for clarity if needed.
-    # Check the output keys of your specific extractor if unsure.
     if "input_values" in inputs:
         batch["input_values"] = inputs["input_values"]
     else:
         logging.error(f"Feature extractor output did not contain expected keys ('input_values'). Found: {inputs.keys()}")
-        # Handle error appropriately, maybe return None or raise exception
         raise KeyError("Could not find processed features in feature extractor output.")
 
-    # Ensure the label is present and correctly formatted (e.g., integer index)
-    # This assumes labels are already numerical indices in the dataset
     if 'label' not in batch:
         raise KeyError(f"Label column 'label' not found in the batch.")
 
@@ -77,15 +68,12 @@ if __name__ == "__main__":
     try:
         logging.info("--- Feature Loader Example --- ")
         # 1. Load data
-        datasets = load_dataset_splits(config.DATASET_NAME)
+        dataset = load_dataset_splits(config.DATASET_NAME)
 
         # 2. Apply preprocessing
         if feature_extractor:
-            logging.info("Applying preprocessing function using .map()...")
-            # Note: `batched=True` is crucial for efficiency
-            # `num_proc` can be set for parallel processing if needed
-            processed_datasets = datasets.map(preprocess_features, batched=True, remove_columns=['audio'])
-            logging.info("Preprocessing complete.")
+            dataset = dataset.rename_column('audio', 'input_values')
+            processed_datasets = dataset.with_transform(preprocess_features)
 
             # Inspect the first processed example
             if processed_datasets:
@@ -98,8 +86,8 @@ if __name__ == "__main__":
                 actual_shape = processed_example['input_values'].shape
                 # The extractor might return (batch, bins, time) or (bins, time)
                 # Adjust comparison based on map output. map usually keeps batch dim implicit.
-                if actual_shape[-2:] == expected_shape:
-                    logging.info(f"Processed feature shape {actual_shape} matches expected {expected_shape} (ignoring batch).")
+                if actual_shape == expected_shape:
+                    logging.info(f"Processed feature shape {actual_shape} matches expected {expected_shape}.")
                 else:
                     logging.warning(f"Processed feature shape {actual_shape} might not match expected {expected_shape}. Check feature extractor and model input layer.")
 

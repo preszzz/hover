@@ -42,7 +42,7 @@ def convert_and_resample(input_path: Path, output_path: Path, target_sr: int) ->
 
         # Ensure audio_data is 2D (samples, channels) for soundfile write
         if audio_data.ndim == 1:
-            audio_data = audio_data[:, np.newaxis]  # Add channel dim
+            audio_data = audio_data[:, np.newaxis]
         elif audio_data.ndim > 1:
             # Transpose for soundfile (samples, channels)
             audio_data = audio_data.T
