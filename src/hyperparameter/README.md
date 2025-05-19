@@ -7,7 +7,7 @@ This directory contains tools for hyperparameter optimization of the Audio Spect
 Before running the hyperparameter tuning script, ensure you have the required dependencies:
 
 ```bash
-pip install optuna
+uv add optuna
 ```
 
 ## Usage

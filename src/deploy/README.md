@@ -13,7 +13,7 @@ This guide explains how to use the external microphone to continuously monitor a
 1. **Install required dependencies**
 
 ```bash
-uv pip install sounddevice matplotlib numpy torch
+uv add sounddevice
 ```
 
 2. **Set the microphone as default input device (optional)**

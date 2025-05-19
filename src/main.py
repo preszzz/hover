@@ -3,6 +3,7 @@
 from feature_engineering.feature_loader import preprocess_features
 from utils.loader import load_dataset_splits
 from utils.hardware import list_audio_devices
+from deploy.live_detection import main
 # from training.train import train_model
 import config
 
@@ -27,4 +28,5 @@ def run_preprocessing():
 
 if __name__ == "__main__":
     # train_model()
-    list_audio_devices()
+    # list_audio_devices()
+    main()

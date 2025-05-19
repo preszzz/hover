@@ -207,6 +207,7 @@ def main():
                             interval=100, blit=False)
         
         # Start audio stream
+        # sd.default.device = 1
         logging.info("Starting audio stream. Press Ctrl+C to stop.")
         with sd.InputStream(
             callback=audio_callback, 
